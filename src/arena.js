@@ -27,7 +27,7 @@ function stoneTexture() {
 export const ARENA_R = 12; // radius of the tiled platform (m); an invisible wall keeps everybody on it
 
 export function buildArena(scene, knight) {
-  const R = knight.RAPIER, group = new THREE.Group(), torches = [];
+  const R = knight.RAPIER, group = new THREE.Group(), torches = [], obstacles = []; // obstacles: { x, z, r } circles for the pathfinding grid (rpg/nav.js)
   scene.add(group);
   const stone = new THREE.MeshStandardMaterial({ color: 0x77726a, roughness: 0.92, metalness: 0 });
   const wood = new THREE.MeshStandardMaterial({ color: 0x6b4a2e, roughness: 0.85, metalness: 0 });
@@ -66,11 +66,13 @@ export function buildArena(scene, knight) {
     add(new THREE.CylinderGeometry(0.36, 0.42, h, 20), stone, x, 0.3 + h / 2, z);
     if (i !== 1) add(new THREE.BoxGeometry(1.0, 0.28, 1.0), stone, x, 0.3 + h + 0.14, z);
     knight.addStatic(R.ColliderDesc.cylinder((h + 0.3) / 2, 0.42).setTranslation(x, (h + 0.3) / 2, z));
+    obstacles.push({ x, z, r: 0.5 });
   }
   // crates
   for (const [x, z, s, ry] of [[3.4, -1.6, 0.8, 0.4], [3.9, -0.7, 0.55, -0.2], [-3.6, -0.9, 0.7, 0.9]]) {
     add(new THREE.BoxGeometry(s, s, s), wood, x, s / 2, z, ry);
     knight.addStatic(R.ColliderDesc.cuboid(s / 2, s / 2, s / 2).setTranslation(x, s / 2, z).setRotation({ x: 0, y: Math.sin(ry / 2), z: 0, w: Math.cos(ry / 2) }));
+    obstacles.push({ x, z, r: s * 0.72 });
   }
   // torches
   for (const [x, z] of [[-3.1, -4.4], [3.4, -4.3]]) {
@@ -82,5 +84,5 @@ export function buildArena(scene, knight) {
     group.add(flame, light);
     torches.push({ flame, light, base: light.intensity, seed: Math.random() * 10 });
   }
-  return { group, update(t) { for (const k of torches) { const f = 0.85 + 0.15 * Math.sin(t * 9 + k.seed) * Math.sin(t * 5.3 + k.seed * 2); k.light.intensity = k.base * f; k.flame.scale.setScalar(0.9 + 0.2 * f); } } };
+  return { group, obstacles, update(t) { for (const k of torches) { const f = 0.85 + 0.15 * Math.sin(t * 9 + k.seed) * Math.sin(t * 5.3 + k.seed * 2); k.light.intensity = k.base * f; k.flame.scale.setScalar(0.9 + 0.2 * f); } } };
 }

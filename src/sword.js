@@ -120,7 +120,7 @@ export class SwordLayer {
   get drawn() { return this.p > 0.5; }
   get busy() { return this.dir !== 0; }
   request(wantDrawn) {
-    if (this.dir !== 0 || this.act < 0.99 || this.swinging || (this.canStart && !this.canStart())) return false;
+    if (this.locked || this.dir !== 0 || this.act < 0.99 || this.swinging || (this.canStart && !this.canStart())) return false;
     if (wantDrawn && this.p < 1) this.dir = 1; else if (!wantDrawn && this.p > 0) this.dir = -1; else return false;
     return true;
   }

@@ -21,12 +21,29 @@ export class NpcAI {
   constructor(me, all, cfg = null) {
     this.me = me; this.all = all; this.cfg = { ...NPC.common, ...(cfg ?? NPC[me.spec.name] ?? {}) };
     this.enabled = true; this.rand = 12345;
+    this.nav = this.cfg.nav ?? null;                 // pathfinding (rpg/nav.js): steer(ai, from, to, dist) -> a direction around the obstacles
+    this.ally = !!this.cfg.ally; this.leader = null; this.foes = null; // an ALLY (the player's robot) picks the nearest of foes() by itself and follows its leader when there is none
+    this.burstT = 0;                                 // cfg.burst = [attack seconds, rest seconds]: a weak fighter swings in bursts instead of non-stop
     this.reset();
   }
   rnd() { let t = (this.rand += 0x6d2b79f5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
   reset() { this.state = 'calm'; this.target = null; this.aggro = 0; this.stunT = 0; this.restT = 0; this.heavyT = 2; this.specT = 2.5; this.leapT = 0; this.calmT = 0; this.hits = 0; this.lastN = 0; this.release(); }
   release() { const me = this.me; me.walk.command(null, 0); me.sword.attackHeld = false; }
   get label() { return this.state === 'fight' || this.state === 'gloat' || this.state === 'stunned' ? `${this.state} ${this.target?.spec.name ?? ''}`.trim() : this.state; }
+
+  // an ally: the nearest foe becomes the target (true), otherwise it stays near its leader (false)
+  allyThink(dt) {
+    const me = this.me, W = me.walk, c = this.cfg, p = me.b[0].p;
+    let best = null, bd = c.allyRange ?? 12;
+    for (const f of this.foes?.() ?? []) { if (f.state !== 'stand') continue; const q = f.b[0].p, d = Math.hypot(q.x - p.x, q.z - p.z); if (d < bd) { bd = d; best = f; } }
+    if (best) { if (this.target !== best) this.lastN = swingCount(best); this.target = best; this.aggro = 5; this.calmT = 0; if (this.state === 'calm') this.state = 'fight'; return true; }
+    this.target = null; this.state = 'calm'; me.sword.attackHeld = false;
+    const l = this.leader?.b[0].p;
+    if (!l || me.state !== 'stand') { W.command(null, 0); return false; }
+    const dx = l.x - p.x, dz = l.z - p.z, d = Math.hypot(dx, dz);
+    if (d > (c.followDist ?? 3)) W.command(new V3(dx, 0, dz).normalize(), clamp((d - 1.5) / 3, 0.35, 1), !!c.run && d > 6); else W.command(null, 0);
+    return false;
+  }
 
   // somebody hit me: turn on it
   provoke(att, heavy = false) {
@@ -55,6 +72,7 @@ export class NpcAI {
     if (!this.enabled) { W.command(null, 0); return; }
     if (me.state !== 'stand') { this.state = this.target ? this.state : 'calm'; W.command(null, 0); return; } // down: the auto get-up handles it
     if (me.jump?.active) return; // in the air: nothing to decide
+    if (this.ally && !this.allyThink(dt)) return; // (an ally has no foe: it walks along with its leader)
     const tg = this.target;
     if (tg) this.aggro -= dt;
     const me0 = me.b[0].p, tg0 = tg?.b[0].p;
@@ -88,12 +106,13 @@ export class NpcAI {
     }
     // ---- close in: run while it is far, ease off as it closes; a retreating attacker is run down
     if (dist > c.meleeDist || (moving && dist > stop + 0.1)) {
-      W.command(dir, Math.min(1, Math.max(0.6, (dist - stop) / 2.2)), !!c.run && err < 1.2);
+      const mdir = this.nav?.steer(this, me0, tg0, dist) ?? dir, merr = Math.abs(wrap(Math.atan2(mdir.x, mdir.z) - me.ghost.psi)); // (around the pillars and crates, away from the others)
+      W.command(mdir, Math.min(1, Math.max(0.6, (dist - stop) / 2.2)), !!c.run && merr < 1.2);
     } else W.command(dist > stop + 0.05 || err > 0.5 ? dir : null, dist > stop + 0.05 ? 0.3 : 0.15); // melee: stand the ground, creep closer / turn to face it
     // ---- fight
-    const face = err < 0.9;
+    const face = err < 0.9, burstOK = !c.burst || ((this.burstT += dt) % (c.burst[0] + c.burst[1])) < c.burst[0];
     if (c.specials && face && dist < c.specRange && this.specT <= 0 && !L.swinging && !L.busy && tg.state === 'stand') { if (L.special?.(c.specials[Math.floor(this.rnd() * c.specials.length) % c.specials.length])) this.specT = c.specEvery * (0.7 + 0.6 * this.rnd()); }
-    if (me.spec.name === 'skeleton') { L.smashOK = dist < c.smashRange; L.attackHeld = dist < c.swingRange && face && tg.state !== 'getup'; } // wild swings from far away
+    if (me.spec.name === 'skeleton') { L.smashOK = dist < c.smashRange; L.attackHeld = dist < c.swingRange && face && tg.state !== 'getup' && burstOK; } // wild swings from far away
     else if (me.spec.name === 'robot') {
       L.attackHeld = dist < c.swingRange && face;
       if (dist < c.meleeDist && face && this.heavyT <= 0) { L.attack(true); this.heavyT = c.heavyEvery * (0.7 + 0.6 * this.rnd()); }

@@ -28,7 +28,7 @@ export const KNIGHT = {
     guard: { own: 1, hold: 3, spineW: 0.25, L: { hand: [0.07, 0.12, 0.20], fist: 0.9, roll: 100, pole: [-0.15, -1, -0.2] }, R: { hand: [0.08, 0.11, 0.19], fist: 0.9, roll: 90, pole: [-0.15, -1, -0.2] }, sp: { chest: 2, abd: 3, head: 5, py: -0.025 } } }, // unarmed: jab - cross - hook combo, haymaker; its neutral hand is palm-down (180 deg from palm-up)
   inertiaFloor: { abdomen: 0.4, chest: 0.9, head: 0.05, upperArm: 0.05, forearm: 0.04, hand: 0.04 }, // heavier virtual inertia of the torso and arms: stacked stiff controllers on a light body ring (see the skeleton)
   bitOrig: 15,                       // collision bit of the fitted colliders (they also touch the other characters')
-  style: {},                         // walk / run overrides (walk.js WALK)
+  style: { run: {} },                // walk / run overrides (walk.js WALK); the knight can run too (the RPG: click-to-move over a 24 m arena)
 };
 
 export const SKELETON = {

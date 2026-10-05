@@ -8,7 +8,8 @@ const HANDS = { L: ['handL', 'forearmL'], R: ['handR', 'forearmR'], B: ['handL',
 
 export class Combat {
   constructor(chars) { this.chars = chars; this.onHit = null; this.hits = 0; }
-  update() { for (const a of this.chars) for (const t of this.chars) if (a !== t && a.state === 'stand') this.resolve(a, t); }
+  update() { // (characters of one team never hit each other)
+    for (const a of this.chars) for (const t of this.chars) if (a !== t && a.state === 'stand' && !(a.team && a.team === t.team)) this.resolve(a, t); }
 
   resolve(att, tgt) {
     const L = att.sword;

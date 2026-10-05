@@ -13,6 +13,9 @@ import { LABELS } from './attack.js';
 import { KNIGHT, SKELETON, ROBOT } from './rigs.js';
 import { NpcAI } from './npc.js';
 import { Combat } from './combat.js';
+import { clone as cloneSkinned } from 'three/addons/utils/SkeletonUtils.js';
+import { startRpg } from './rpg/game.js';
+import { CFG } from './rpg/config.js';
 
 const $ = (id) => document.getElementById(id);
 const params = new URLSearchParams(location.search);
@@ -24,12 +27,17 @@ const CAST = [
   { spec: ROBOT, glb: 'robot.glb', at: [2.8, 2.1] },
 ];
 
+// the RPG (default): the knight, the robot (an ally you can buy / craft) and a pool of skeletons that the waves re-use; ?mode=sandbox is the old sandbox with the three characters
+const RPG = !params.has('film') && params.get('mode') !== 'sandbox';
+const RPG_CAST = [CAST[0], CAST[2], ...Array.from({ length: CFG.waves.poolSize }, () => CAST[1])];
+
 async function main() {
   const status = $('loading');
   const film = params.has('film'), filmRig = params.get('rig') ?? 'knight'; // film modes show one character: ?rig=skeleton | robot for the others
-  const cast = CAST.filter((c) => !film || c.spec.name === filmRig);
-  const pct = {}, show = () => { const v = Object.values(pct); status.textContent = `Loading models… ${Math.round(v.reduce((a, b) => a + b, 0) / cast.length)}%`; };
-  const load = (c) => new GLTFLoader().loadAsync(c.glb, (e) => { if (e.total) { pct[c.spec.name] = (100 * e.loaded) / e.total; show(); } });
+  const cast = (RPG ? RPG_CAST : CAST).filter((c) => !film || c.spec.name === filmRig);
+  const pct = {}, show = () => { const v = Object.values(pct); status.textContent = `Loading models… ${Math.round(v.reduce((a, b) => a + b, 0) / new Set(cast.map((x) => x.spec.name)).size)}%`; };
+  const loads = {}; // (one download per model file: the skeleton pool shares it)
+  const load = (c) => (loads[c.glb] ??= new GLTFLoader().loadAsync(c.glb, (e) => { if (e.total) { pct[c.spec.name] = (100 * e.loaded) / e.total; show(); } }));
   const profiles = await Promise.all(cast.map((c) => fetch(c.spec.profile).then((r) => r.json())));
   const [gltfs, swordGltf] = await Promise.all([Promise.all(cast.map(load)), cast.some((c) => c.spec.sword) ? new GLTFLoader().loadAsync('sword and sword holder.glb') : null]);
   status.textContent = 'Starting physics…';
@@ -78,7 +86,7 @@ async function main() {
   const makeChar = (ch, gltf, profile, spawn) => {
     scene.add(gltf.scene);
     gltf.scene.traverse((o) => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; for (const t of ['map', 'normalMap', 'metalnessMap', 'roughnessMap']) if (o.material[t]) o.material[t].anisotropy = 8; } });
-    const rec = { ch, name: ch.spec.name, skin: new SkinBinder(gltf.scene, ch.rig, profile), P: ch.b.map((b) => b.rp), Q: ch.b.map((b) => b.rq), spawn, sv: null, colView: null, ai: null };
+    const rec = { ch, name: ch.spec.name, skin: new SkinBinder(gltf.scene, ch.rig, profile), P: ch.b.map((b) => b.rp), Q: ch.b.map((b) => b.rq), spawn, sv: null, colView: null, ai: null, root: gltf.scene };
     if (ch.spec.sword) { // the two unskinned meshes: the bigger one is the holder, the other the sword
       const parts = []; swordGltf.scene.traverse((o) => { if (o.isMesh) parts.push(o); });
       parts.sort((a, b) => b.geometry.attributes.position.count - a.geometry.attributes.position.count);
@@ -99,9 +107,12 @@ async function main() {
   };
   const fist = params.has('fist') ? +params.get('fist') : null; // debug: &fist=0..1 forces the fingers' curl
   const poseChar = (rec, P, Q, dt) => { const ch = rec.ch; rec.skin.curl.R = fist ?? ch.sword.curl('R'); rec.skin.curl.L = fist ?? ch.sword.curl('L'); rec.skin.apply(P, Q); if (rec.sv) rec.sv.update(P, Q, dt); if (rec.colView) rec.colView(P, Q); };
+  // (the 2nd, 3rd... skeleton is a clone of the first, made BEFORE the first one is bound: the skin binder edits the geometry's weights and bones in place, so every clone gets its own geometry)
+  const seenGlb = new Set(), scenes = cast.map((c, i) => { if (!seenGlb.has(c.glb)) { seenGlb.add(c.glb); return null; } const sc = cloneSkinned(gltfs[i].scene); sc.traverse((o) => { if (o.isMesh && o.geometry) o.geometry = o.geometry.clone(); }); return sc; });
+  const gltfFor = (i) => (scenes[i] ? { scene: scenes[i] } : gltfs[i]);
   cast.forEach((c, i) => {
     const x = film ? 0 : c.at[0], z = film ? 0 : c.at[1];
-    makeChar(bodies[i], gltfs[i], profiles[i], { x, z, psi: film || c.spec.name === 'knight' ? 0 : Math.atan2(-x, -z) });
+    makeChar(bodies[i], gltfFor(i), profiles[i], { x, z, psi: film || c.spec.name === 'knight' ? 0 : Math.atan2(-x, -z) });
   });
   for (const rec of chars) poseChar(rec, rec.P, rec.Q, Infinity);
   const byName = Object.fromEntries(chars.map((r) => [r.name, r])), K = byName.knight, S = byName.skeleton, R = byName.robot;
@@ -117,6 +128,7 @@ async function main() {
   if (params.has('hide') && K) { K.sv.holder.visible = false; K.sv.sword.visible = false; } // debug: look at the belt without the sword
   window.__app = { knight, skeleton, robot, chars, byName, sim, camera, controls, scene, THREE, renderer, skin: chars[0].skin, swordView: K?.sv, mesh: chars[0].skin.mesh, combat }; // test hooks
   if (film) return filmstrip(params.get('film'), chars[0]);
+  if (RPG) { $('ui').hidden = true; return startRpg({ renderer, scene, sun, sim, combat, chars, poseChar, arena, GLTFLoader, controls }); }
 
   // ---- UI. `ctl` = the character the keyboard / buttons / slider drive. Every other character is an NPC (neutral until it is hit).
   $('ui').hidden = false;
