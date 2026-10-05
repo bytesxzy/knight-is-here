@@ -77,9 +77,14 @@ export const SWORD_SWINGS = {
   chop: { d: [0.28, 0.17, 0.14, 0.40], az: [0, 0], el: [110, -20], hand: { cock: [0, 0.24, 0.14], end: [0, -0.05, 0.30], arc: [0, 0.04, 0.04] }, nRef: [-1, 0, 0], nRoll: 30, side: 'R', impulse: 340, knock: true,
     sp: { chestT: 0, abdT: 0, chest: [-12, 26], abd: [-4, 14], chestS: [0, 0], head: [-6, 10], headT: 0, pyaw: 0, pitch: [-2, 5] } },
 };
+// the specials: a lunging two-handed thrust, a rising cut (low on the right to high on the left)
+SWORD_SWINGS.thrust = { d: [0.24, 0.11, 0.10, 0.30], az: [0, 0], el: [6, 6], hand: { cock: [0.02, -0.02, 0.07], end: [0.02, 0.02, 0.31], arc: [0, 0, 0] }, nRef: [0, -1, 0], nRoll: 0, side: 'R', impulse: 210, knock: false,
+  sp: { chestT: 10, abdT: 6, chest: [0, 5], abd: [0, 3], chestS: [0, 0], head: [0, -3], headT: -0.4, pyaw: 4, pitch: [0, 2], pz: [-0.03, 0.12], py: [0, -0.04] } };
+SWORD_SWINGS.rise = { d: [0.18, 0.13, 0.10, 0.28], az: [50, -25], el: [-35, 60], hand: { cock: [0.10, -0.10, 0.22], end: [-0.04, 0.14, 0.30], arc: [0, 0.02, 0.04] }, nRef: [0, -1, 0], nRoll: 30, side: 'L', impulse: 230, knock: true, lift: 0.8,
+  sp: { chestT: 26, abdT: 14, chest: [4, -4], abd: [2, -2], chestS: [0, 0], head: [2, -4], headT: -0.5, pyaw: 7, pitch: [0, 1], py: [-0.03, 0.01] } };
 for (const k of Object.values(SWORD_SWINGS)) k.T = k.d.reduce((a, b) => a + b, 0);
 export const SWORD_COMBO = ['slash', 'back'];                       // the light attack button cycles through these
-export const SWORD_SPECIALS = {};                                    // Q / R while the sword is drawn: filled in below with the special moves
+export const SWORD_SPECIALS = { Q: 'thrust', R: 'rise' };                                    // Q / R while the sword is drawn: filled in below with the special moves
 const HILT = (GRIP_Y + GRIP_YL) / 2; // the hands' centre above the sword origin along the hilt (the blade runs the other way)
 // sword origin + rotation in the chest frame at progress a of swing kind K
 function swingLocal(K, a, sa) {
@@ -170,7 +175,7 @@ export class SwordLayer {
     if (this.swIdle > 1.1) this.swI = 0;
     if (!special) { if (kind !== 'chop') this.swI++; else this.swI = 0; }
     this.swIdle = 0; this.engT = 0;
-    this.swings.push({ kind, side: K.side, t: 0, d: K.d.slice(), T: K.T, amp: 1, hit: false, as: 0, ws: 0, impulse: K.impulse, knock: K.knock, blade: true, chain: K.d[0] + K.d[1] + K.d[2] + (K.chain ?? 0.3) * K.d[3] });
+    this.swings.push({ kind, side: K.side, t: 0, d: K.d.slice(), T: K.T, amp: 1, hit: false, as: 0, ws: 0, impulse: K.impulse, knock: K.knock, lift: K.lift, blade: true, chain: K.d[0] + K.d[1] + K.d[2] + (K.chain ?? 0.3) * K.d[3] });
     return true;
   }
   stepSwings(h, active) {
@@ -228,11 +233,19 @@ export class SwordLayer {
   // hand override for one side. ctx = partially solved ghost { P, Qw, I }. null = leave the hand alone.
   // hand override for one side: the sword layer's, blended with the punches' while one is under way (the left hand leaves the pommel to jab)
   arm(side, ctx) {
-    const base = this.armBase(side, ctx), f = this.fists?.arm(side, ctx);
+    const base = this.limitReach(side, ctx, this.armBase(side, ctx)), f = this.fists?.arm(side, ctx);
     if (!f) return base;
     if (!base) return f;
     const t = f.w;
     return { pos: base.pos.clone().lerp(f.pos, t), w: lerp(base.w, f.w, t), quat: base.quat, wq: base.wq * (1 - t), pole: f.pole ?? base.pole, roll: f.roll };
+  }
+  // the arm never quite straightens: with the elbow nearly in line with shoulder and wrist the bend plane is undefined and the upper arm flipped about its axis
+  // between a forehand and a backhand cut (the two-handed guard reaches almost the arm's full length): a soft reach limit at ~92%
+  limitReach(side, ctx, r) {
+    const F = this.fists; if (!r || !F) return r;
+    const S = F.sh[side].clone().applyQuaternion(ctx.Qw[ctx.I.chest]).add(ctx.P[ctx.I.chest]), d = r.pos.clone().sub(S), n = d.length(), L0 = 0.78 * F.armLen, K = 0.14 * F.armLen;
+    if (n > L0) { d.multiplyScalar((L0 + K * Math.tanh((n - L0) / K)) / n); r.pos = S.add(d); }
+    return r;
   }
   armBase(side, ctx) {
     if (this.act < 0.001) return null;

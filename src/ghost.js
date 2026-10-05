@@ -13,9 +13,18 @@ const SCAN = [0, 22, 0, -18, 0, 12, -26, 0];
 export const scanYaw = (t) => { const T = 2.7, i = Math.floor(t / T), f = t / T - i, a = SCAN[((i % 8) + 8) % 8], b = SCAN[(((i + 1) % 8) + 8) % 8], u = Math.min(1, Math.max(0, (f - 0.925) / 0.075)); return a + (b - a) * u * u * (3 - 2 * u); };
 export const ease = (u) => { u = clamp(u, 0, 1); return u * u * (3 - 2 * u); };
 
+// a direction turned toward another along the shortest arc (a plain lerp of two opposite poles passes through zero and the elbow flips to the other side)
+const slerpDir = (a, b, t) => a.clone().applyQuaternion(new Q().slerp(new Q().setFromUnitVectors(a, b), t));
+// the point `w` of the way from T to P about the shoulder S: the direction turns along the shortest arc, the distance is blended and kept above rmin (smoothly)
+function blendReach(S, T, P, w, rmin) {
+  const a = T.clone().sub(S), b = P.clone().sub(S), ra = a.length(), rb = b.length();
+  if (ra < 1e-5 || rb < 1e-5) return T.clone().lerp(P, w);
+  const r = ra + (rb - ra) * w, e = 0.03, rr = 0.5 * (r + rmin + Math.sqrt((r - rmin) * (r - rmin) + e * e)), dir = slerpDir(a.divideScalar(ra), b.divideScalar(rb), w);
+  return S.clone().addScaledVector(dir, w < 1e-4 ? ra : w > 1 - 1e-4 ? rb : rr);
+}
 // ---- two-bone IK. S: root joint, T: wanted end position, pole: direction the middle joint should bulge to.
 // oL / oE: rest offsets upper->lower and lower->end, h: hinge axis (upper frame), s: sign of the flexion angle.
-function solveLimb(S, T, pole, oL, oE, h, s, hingeW = null, eps = 0.06) {
+function solveLimb(S, T, pole, oL, oE, h, s, hingeW = null, eps = 0.06, memo = null) {
   const d = T.clone().sub(S), Dd = d.length();
   const A = oL.dot(h) * h.dot(oE), B = oL.dot(oE) - A, C = oL.dot(new V3().crossVectors(h, oE));
   const R = Math.hypot(B, C), phi = Math.atan2(C, B);
@@ -30,8 +39,14 @@ function solveLimb(S, T, pole, oL, oE, h, s, hingeW = null, eps = 0.06) {
   let twist = 0;
   const off = a.length();
   if (off > 1e-6 && b.lengthSq() > 1e-8) {
-    a.normalize(); b.normalize();
-    twist = Math.atan2(dn.dot(new V3().crossVectors(a, b)), a.dot(b)) * clamp(off / eps, 0, 1);
+    const bl0 = Math.sqrt(b.lengthSq()); a.normalize(); b.normalize();
+    const bl = clamp((bl0 / Math.max(Math.sqrt(pole.lengthSq()), 1e-6) - 0.3) / 0.4, 0, 1); // (a pole (anti)parallel to the reach direction has no defined bend side: its authority fades out instead of flipping the arm about its axis)
+    let raw = Math.atan2(dn.dot(new V3().crossVectors(a, b)), a.dot(b));
+    if (memo) { // the twist angle is tracked through time: when the wanted bend side is the opposite of the natural one the angle sits at +-PI and one tiny change would flip it by 2 PI (times the fades below: a jump of the whole arm)
+      if (memo.raw !== undefined) { raw = memo.raw + Math.atan2(Math.sin(raw - memo.raw), Math.cos(raw - memo.raw)); if (raw > Math.PI + 0.8) raw -= 2 * Math.PI; else if (raw < -Math.PI - 0.8) raw += 2 * Math.PI; }
+      memo.raw = raw;
+    }
+    twist = raw * clamp(off / eps, 0, 1) * bl * bl * (3 - 2 * bl);
   }
   if (hingeW) { // rest limbs that are bent sideways (knock-kneed legs): put the HINGE axis on the wanted world axis instead of chasing the bulge direction
     const pc = h.clone().applyQuaternion(Q1), pd = hingeW.clone();
@@ -188,11 +203,11 @@ export class Ghost {
       const rel = raw.clone().applyQuaternion(Qw[c]).add(S);                // hanging: offset from the shoulder, in chest frame
       T = abs.lerp(rel, v.hs);
       const ov = this.layer ? this.layer.arm(l.S, { P, Qw, I }) : null; // layer may take over the hand (target, orientation, elbow side)
-      if (ov) T.lerp(ov.pos, ov.w);
+      if (ov) T.copy(blendReach(S, T, ov.pos, ov.w, 0.3 * (B[l.el].off.length() + B[l.hand].off.length()))); // (the hand follows the walker's target into the layer's through the shoulder's SPHERE: a straight lerp from a hanging arm to a raised one passes right by the shoulder, where the elbow IK has no defined direction)
       const Xc = new V3(1, 0, 0).applyQuaternion(Qw[c]);
       let pole = new V3().crossVectors(Xc, T.clone().sub(S).normalize()); // elbows bulge backward
-      if (ov && ov.pole) pole = pole.lengthSq() > 1e-8 ? pole.normalize().lerp(ov.pole, ov.w) : ov.pole.clone();
-      r = solveLimb(S, T, pole, B[l.el].off, B[l.hand].off, new V3(0, 1, 0), -k, null, ov ? 0.06 + (0.008 - 0.06) * ov.w : 0.06); // (a layer that reaches far must not lose the elbow's plane just as the arm straightens: the upper arm would flip about its axis)
+      if (ov && ov.pole) pole = pole.lengthSq() > 1e-8 ? slerpDir(pole.normalize(), ov.pole.clone().normalize(), ov.w * (1 - (ov.free ?? 0))) : ov.pole.clone(); // (a layer's `free` share leaves the elbow to the walker's own pole)
+      r = solveLimb(S, T, pole, B[l.el].off, B[l.hand].off, new V3(0, 1, 0), -k, null, ov ? 0.06 + (0.008 - 0.06) * ov.w : 0.06, (this.memo ??= { L: {}, R: {} })[l.S]); // (a layer that reaches far must not lose the elbow's plane just as the arm straightens: the upper arm would flip about its axis)
       Qw[l.sh].copy(r.QU); ql[l.sh].copy(Qw[c]).invert().multiply(r.QU); P[l.sh].copy(S);
       place(l.el, Ry(r.k));
       const flat = Ry(-k * Math.PI / 2), hf = v['hf' + l.S];

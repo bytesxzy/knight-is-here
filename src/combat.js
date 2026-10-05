@@ -36,9 +36,10 @@ export class Combat {
     const A = att.b[0].p, T = tgt.b[0].p, dir = new V3(T.x - A.x, 0, T.z - A.z).normalize();
     const hand = att.b[att.rig.idx[s.side === 'L' ? 'handL' : 'handR']].rb.linvel(), hv = new V3(hand.x, 0, hand.z);
     if (hv.length() > 1) dir.addScaledVector(hv.normalize(), 0.6).normalize(); // a little along the swing itself
-    const push = dir.add(new V3(0, s.knock ? 0.25 : 0.12, 0)).normalize().multiplyScalar(s.impulse), at = new V3(c.p.x, c.p.y, c.p.z);
+    const push = dir.add(new V3(0, s.lift ?? (s.knock ? 0.25 : 0.12), 0)).normalize().multiplyScalar(s.impulse), at = new V3(c.p.x, c.p.y, c.p.z);
     if (s.knock) tgt.goLimp();
     tgt.shove(c.tb.rb, at, push);
+    att.sword.hitStop?.(s.knock ? 0.07 : 0.035); // (weight: the attacker's own move clock nearly stops for a moment as the blow lands)
     this.onHit?.({ att, tgt, s, point: at, heavy: !!s.knock, part: c.tb.d.name });
   }
 }

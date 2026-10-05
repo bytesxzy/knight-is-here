@@ -10,9 +10,9 @@ const clamp = (x, a, b) => Math.min(b, Math.max(a, x));
 
 export const NPC = {
   common: { aggroT: 9, rest: 1.6, stunLight: 0, stunHeavy: 0.9, forgetDist: 14 }, // light blows only shove it (it keeps swinging: it trades blows); a heavy one stops it for a moment
-  skeleton: { run: true, stopDist: 0.62, meleeDist: 1.15, swingRange: 4.2, smashRange: 2.4 },
-  robot: { run: true, stopDist: 0.72, meleeDist: 1.3, swingRange: 1.6, leap: [3.4, 9, 3.2], dodge: 0.35, heavyEvery: 4.5 },
-  knight: { run: false, stopDist: 0.62, swordStop: 0.88, meleeDist: 1.2, drawDist: 1.8, heavyEvery: 5, sheatheAfter: 5 },
+  skeleton: { run: true, stopDist: 0.62, meleeDist: 1.15, swingRange: 4.2, smashRange: 2.4, specials: ['Q', 'R', 'F'], specRange: 1.5, specEvery: 3.2 },
+  robot: { run: true, stopDist: 0.72, meleeDist: 1.3, swingRange: 1.6, leap: [3.4, 9, 3.2], dodge: 0.35, heavyEvery: 4.5, specials: ['Q', 'R', 'F'], specRange: 1.4, specEvery: 4 },
+  knight: { run: false, stopDist: 0.62, swordStop: 0.88, meleeDist: 1.2, drawDist: 1.8, heavyEvery: 5, sheatheAfter: 5, specials: ['Q', 'R'], specRange: 1.2, specEvery: 4 }, // (specials: the Q / R / F buttons the player has: an NPC throws one now and then at close range)
 };
 
 const swingCount = (ch) => (ch.sword.n ?? 0) + (ch.sword.fists?.n ?? 0) + (ch.sword.swI ?? 0);
@@ -24,7 +24,7 @@ export class NpcAI {
     this.reset();
   }
   rnd() { let t = (this.rand += 0x6d2b79f5); t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }
-  reset() { this.state = 'calm'; this.target = null; this.aggro = 0; this.stunT = 0; this.restT = 0; this.heavyT = 2; this.leapT = 0; this.calmT = 0; this.hits = 0; this.lastN = 0; this.release(); }
+  reset() { this.state = 'calm'; this.target = null; this.aggro = 0; this.stunT = 0; this.restT = 0; this.heavyT = 2; this.specT = 2.5; this.leapT = 0; this.calmT = 0; this.hits = 0; this.lastN = 0; this.release(); }
   release() { const me = this.me; me.walk.command(null, 0); me.sword.attackHeld = false; }
   get label() { return this.state === 'fight' || this.state === 'gloat' || this.state === 'stunned' ? `${this.state} ${this.target?.spec.name ?? ''}`.trim() : this.state; }
 
@@ -51,7 +51,7 @@ export class NpcAI {
     L.attackHeld = false;
     if (this.stunT > 0) this.stunT -= dt;
     if (this.restT > 0) this.restT -= dt;
-    this.heavyT -= dt; this.leapT -= dt;
+    this.heavyT -= dt; this.leapT -= dt; this.specT -= dt;
     if (!this.enabled) { W.command(null, 0); return; }
     if (me.state !== 'stand') { this.state = this.target ? this.state : 'calm'; W.command(null, 0); return; } // down: the auto get-up handles it
     if (me.jump?.active) return; // in the air: nothing to decide
@@ -92,6 +92,7 @@ export class NpcAI {
     } else W.command(dist > stop + 0.05 || err > 0.5 ? dir : null, dist > stop + 0.05 ? 0.3 : 0.15); // melee: stand the ground, creep closer / turn to face it
     // ---- fight
     const face = err < 0.9;
+    if (c.specials && face && dist < c.specRange && this.specT <= 0 && !L.swinging && !L.busy && tg.state === 'stand') { if (L.special?.(c.specials[Math.floor(this.rnd() * c.specials.length) % c.specials.length])) this.specT = c.specEvery * (0.7 + 0.6 * this.rnd()); }
     if (me.spec.name === 'skeleton') { L.smashOK = dist < c.smashRange; L.attackHeld = dist < c.swingRange && face && tg.state !== 'getup'; } // wild swings from far away
     else if (me.spec.name === 'robot') {
       L.attackHeld = dist < c.swingRange && face;

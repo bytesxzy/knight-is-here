@@ -17,11 +17,11 @@ const S = ease; // smoothstep
 
 // the skeleton's savage swings
 export const SWINGS = {
-  slash: { d: [0.26, 0.15, 0.10, 0.26], both: false, hand: { cock: [-0.20, 0.21, -0.17], end: [0.20, -0.21, 0.20], arc: [0, 0.10, 0.12] }, fist: [1, 1], roll: [0, 180], impulse: 120, knock: false,
+  slash: { d: [0.26, 0.15, 0.10, 0.26], both: false, hand: { cock: [-0.20, 0.21, -0.17], end: [0.20, -0.21, 0.20], arc: [0, 0.10, 0.12] }, fist: [1, 1], roll: [0, 180], impulse: 120, knock: false, pole: [-0.7, -0.6, -0.25],
     sp: { chestT: 30, abdT: 18, chest: [-5, 12], abd: [-3, 8], chestS: [-4, 6], head: [2, -8], headT: -0.7, pyaw: 8, pitch: [-1, 3] } },
-  hook: { d: [0.28, 0.16, 0.10, 0.26], both: false, hand: { cock: [-0.30, 0.0, -0.08], end: [0.16, -0.05, 0.27], arc: [-0.06, 0, 0.04] }, fist: [1, 1], roll: [0, 180], impulse: 135, knock: false,
+  hook: { d: [0.28, 0.16, 0.10, 0.26], both: false, hand: { cock: [-0.30, 0.0, -0.08], end: [0.16, -0.05, 0.27], arc: [-0.06, 0, 0.04] }, fist: [1, 1], roll: [0, 180], impulse: 135, knock: false, pole: [-1, -0.15, -0.2],
     sp: { chestT: 38, abdT: 22, chest: [0, 8], abd: [0, 5], chestS: [0, 0], head: [0, -4], headT: -0.7, pyaw: 10, pitch: [0, 2] } },
-  smash: { d: [0.40, 0.20, 0.16, 0.36], both: true, hand: { cock: [0.12, 0.31, -0.08], end: [0.10, -0.25, 0.22], arc: [0, 0.08, 0.08] }, fist: [1, 1], roll: [90, 90], impulse: 330, knock: true,
+  smash: { d: [0.40, 0.20, 0.16, 0.36], both: true, hand: { cock: [0.12, 0.31, -0.08], end: [0.10, -0.25, 0.22], arc: [0, 0.08, 0.08] }, fist: [1, 1], roll: [90, 90], impulse: 330, knock: true, pole: [-0.85, 0.15, -0.5], poleEnd: [-0.8, -0.5, -0.3],
     sp: { chestT: 0, abdT: 0, chest: [-16, 28], abd: [-6, 18], chestS: [0, 0], head: [-10, 14], headT: 0, pyaw: 0, pitch: [-2, 6] } },
 };
 // the knight's punches (jab = the left hand, cross = the right, hook alternates, haymaker = the heavy one)
@@ -36,15 +36,45 @@ export const PUNCHES = {
   haymaker: { d: [0.24, 0.13, 0.12, 0.30], side: 'R', both: false, hand: { cock: [-0.33, 0.20, -0.10], end: [0.18, -0.06, 0.28], arc: [-0.08, 0.04, 0.05] }, fist: [1, 1], roll: [60, 180], impulse: 270, knock: true, pole: [-1, -0.2, -0.3],
     sp: { chestT: 28, abdT: 16, chest: [-3, 12], abd: [-2, 6], chestS: [0, 0], head: [0, -5], headT: -0.7, pyaw: 10, pitch: [-1, 4] } },
 };
+PUNCHES.uppercut = { d: [0.16, 0.10, 0.08, 0.26], side: 'R', both: false, hand: { cock: [0.08, -0.30, 0.10], end: [0.06, 0.16, 0.30], arc: [0, 0, 0.04] }, fist: [1, 1], roll: [100, 60], impulse: 190, knock: true, lift: 0.9, pole: [-0.35, -1, -0.1],
+  sp: { chestT: 12, abdT: 7, chest: [8, -5], abd: [4, -2], chestS: [0, 0], head: [2, -4], headT: -0.4, pyaw: 5, pitch: [1, -1], py: [-0.05, 0.02] } };
+PUNCHES.elbow = { d: [0.10, 0.09, 0.07, 0.22], side: 'L', both: false, hand: { cock: [-0.18, 0.12, 0.10], end: [0.15, 0.08, 0.16], arc: [0, 0, 0] }, fist: [1, 1], roll: [90, 90], impulse: 135, knock: false, pole: [-0.6, -0.2, 0.8],
+  sp: { chestT: 24, abdT: 14, chest: [0, 6], abd: [0, 3], chestS: [0, 0], head: [0, -3], headT: -0.6, pyaw: 8, pitch: [0, 2] } };
+// the skeleton's extra moves: a lunging spear-hand stab, a two-handed claw rake (an X), a rising claw, a backhand sweep
+SWINGS.stab = { d: [0.22, 0.09, 0.08, 0.24], both: false, hand: { cock: [0.06, 0.02, 0.10], end: [0.05, 0, 0.34], arc: [0, 0, 0] }, fist: [0, 0], roll: [90, 90], impulse: 150, knock: false, pole: [-0.5, -1, -0.2],
+  sp: { chestT: 16, abdT: 9, chest: [0, 6], abd: [0, 4], chestS: [0, 0], head: [0, -3], headT: -0.5, pyaw: 6, pitch: [0, 2], pz: [0, 0.10], py: [0, -0.03] } };
+SWINGS.rake = { d: [0.24, 0.12, 0.10, 0.28], both: true, hand: { cock: [-0.24, 0.26, -0.05], end: [0.15, -0.20, 0.26], arc: [0, 0.06, 0.06] }, fist: [0.3, 0.7], roll: [90, 90], impulse: 190, knock: false, pole: [-0.6, -0.8, -0.2],
+  sp: { chestT: 0, abdT: 0, chest: [-8, 16], abd: [-3, 10], chestS: [0, 0], head: [-6, 10], headT: 0, pyaw: 0, pitch: [-1, 4] } };
+SWINGS.rise = { d: [0.16, 0.10, 0.08, 0.26], side: 'R', both: false, hand: { cock: [0.06, -0.28, 0.10], end: [0.05, 0.18, 0.28], arc: [0, 0, 0.04] }, fist: [1, 1], roll: [90, 90], impulse: 200, knock: true, lift: 0.9, pole: [-0.35, -1, -0.1],
+  sp: { chestT: 12, abdT: 7, chest: [8, -5], abd: [4, -2], chestS: [0, 0], head: [2, -4], headT: -0.4, pyaw: 5, pitch: [1, -1], py: [-0.04, 0.02] } };
+SWINGS.backhand = { d: [0.16, 0.12, 0.08, 0.24], side: 'L', both: false, hand: { cock: [0.18, 0.04, 0.14], end: [-0.30, 0.06, 0.10], arc: [0, 0, 0.08] }, fist: [0.6, 1], roll: [90, 90], impulse: 140, knock: false, pole: [-0.8, -0.3, -0.4],
+  sp: { chestT: 34, abdT: 20, chest: [0, 8], abd: [0, 5], chestS: [0, 0], head: [0, -5], headT: -0.7, pyaw: 9, pitch: [0, 2] } };
 // the robot's moves: stiff, constant-speed pistons (lin: a trapezoid speed profile, no ease in or out), no corkscrew, a block of a torso
 export const ROBOT_SWINGS = {
   piston: { d: [0.07, 0.10, 0.06, 0.18], lin: true, both: false, hand: { cock: [0.12, -0.02, 0.10], end: [0.06, -0.02, 0.37], arc: [0, 0, 0] }, fist: [0.75, 1], roll: [90, 90], impulse: 105, knock: false, pole: [-0.2, -1, -0.1],
     sp: { chestT: 6, abdT: 3, chest: [0, 3], abd: [0, 1], chestS: [0, 0], head: [0, 0], headT: 0, pyaw: 2, pitch: [0, 1] } },
   sweep: { d: [0.12, 0.14, 0.08, 0.22], lin: true, both: false, hand: { cock: [-0.30, 0.04, 0.10], end: [0.22, 0.02, 0.28], arc: [0, 0, 0] }, fist: [0.75, 1], roll: [90, 90], impulse: 140, knock: false, pole: [-1, -0.1, -0.2],
     sp: { chestT: 12, abdT: 6, chest: [0, 2], abd: [0, 1], chestS: [0, 0], head: [0, 0], headT: 0, pyaw: 4, pitch: [0, 1] } },
-  hammer: { d: [0.30, 0.15, 0.14, 0.34], lin: true, side: 'R', both: true, hand: { cock: [0.12, 0.30, -0.05], end: [0.10, -0.22, 0.28], arc: [0, 0, 0] }, fist: [1, 1], roll: [90, 90], impulse: 300, knock: true,
+  hammer: { d: [0.30, 0.15, 0.14, 0.34], lin: true, side: 'R', both: true, hand: { cock: [0.12, 0.30, -0.05], end: [0.10, -0.22, 0.28], arc: [0, 0, 0] }, fist: [1, 1], roll: [90, 90], impulse: 300, knock: true, pole: [-0.85, 0.15, -0.5], poleEnd: [-0.8, -0.5, -0.3],
     sp: { chestT: 0, abdT: 0, chest: [-10, 20], abd: [-4, 12], chestS: [0, 0], head: [-4, 8], headT: 0, pyaw: 0, pitch: [-1, 4] } },
 };
+// the robot's extras: a launching uppercut, rapid pistons (the barrage), a two-handed clap, a straight-armed chop
+ROBOT_SWINGS.uppercut = { d: [0.20, 0.12, 0.10, 0.28], lin: true, side: 'R', both: false, hand: { cock: [0.10, -0.30, 0.08], end: [0.07, 0.14, 0.30], arc: [0, 0, 0] }, fist: [0.75, 1], roll: [90, 90], impulse: 250, knock: true, lift: 1.0, pole: [-0.35, -1, -0.1],
+  sp: { chestT: 6, abdT: 3, chest: [6, -4], abd: [3, -2], chestS: [0, 0], head: [0, 0], headT: 0, pyaw: 2, pitch: [0, 1], py: [-0.05, 0.02] } };
+ROBOT_SWINGS.rapid = { d: [0.03, 0.05, 0.03, 0.10], lin: true, both: false, hand: { cock: [0.12, -0.02, 0.12], end: [0.06, -0.02, 0.35], arc: [0, 0, 0] }, fist: [0.75, 1], roll: [90, 90], impulse: 70, knock: false, pole: [-0.2, -1, -0.1],
+  sp: { chestT: 3, abdT: 2, chest: [0, 2], abd: [0, 1], chestS: [0, 0], head: [0, 0], headT: 0, pyaw: 1, pitch: [0, 1] } };
+ROBOT_SWINGS.clap = { d: [0.22, 0.10, 0.10, 0.30], lin: true, both: true, hand: { cock: [-0.20, 0.05, 0.06], end: [0.12, 0, 0.30], arc: [0, 0, 0] }, fist: [0.3, 0.3], roll: [90, 90], impulse: 260, knock: true, pole: [-1, -0.2, -0.2],
+  sp: { chestT: 0, abdT: 0, chest: [-4, 10], abd: [-2, 6], chestS: [0, 0], head: [0, 3], headT: 0, pyaw: 0, pitch: [0, 3] } };
+ROBOT_SWINGS.chop = { d: [0.18, 0.12, 0.10, 0.28], lin: true, both: false, hand: { cock: [0.04, 0.30, 0], end: [0.05, -0.20, 0.28], arc: [0, 0, 0] }, fist: [0.75, 1], roll: [90, 90], impulse: 190, knock: false, pole: [-0.85, 0.15, -0.5], poleEnd: [-0.8, -0.5, -0.3],
+  sp: { chestT: 4, abdT: 2, chest: [-6, 12], abd: [-2, 6], chestS: [0, 0], head: [0, 0], headT: 0, pyaw: 1, pitch: [-1, 3] } };
+// elbow side. `pole: 'free'` = the walker's own pole (the elbow bulges backward / down by itself): where a move's hand goes (almost) straight up or down the explicit
+// poles of the other moves end up (anti)parallel to the reach and the upper arm swung about its axis; measured with tools/combat-smooth.mjs the free elbow is the
+// smoothest (and physically the easiest to follow) for the stiff robot and for the skeleton's two-handed moves; the knight's punches keep their explicit poles
+for (const k of Object.values(ROBOT_SWINGS)) { k.pole = 'free'; delete k.poleEnd; }
+for (const k of [SWINGS.smash, SWINGS.rake]) { k.pole = 'free'; delete k.poleEnd; }
+// display names (the controls panel)
+export const LABELS = { jab: 'Jab', cross: 'Cross', hook: 'Hook', haymaker: 'Haymaker', uppercut: 'Uppercut', elbow: 'Elbow', slash: 'Slash', smash: 'Smash', stab: 'Lunge stab', rake: 'Double rake', rise: 'Rising claw', backhand: 'Backhand',
+  piston: 'Piston', sweep: 'Sweep', hammer: 'Hammer', rapid: 'Rapid piston', clap: 'Thunder clap', chop: 'Chop', barrage: 'Piston barrage' };
 export const tableFinish = (t) => { for (const k of Object.values(t)) k.T = k.d.reduce((a, b) => a + b, 0); };
 for (const t of [SWINGS, PUNCHES, ROBOT_SWINGS]) tableFinish(t);
 
@@ -97,7 +127,7 @@ export class AttackLayer {
     this.armLen = B[I.forearmL].off.length() + B[I.handL].off.length(); // shoulder -> wrist when the arm is straight
     this.out = { L: this.blank(), R: this.blank() };
   }
-  blank() { return { off: new V3(), W: 0, roll: 0, curl: this.style.relaxed, pole: new V3() }; }
+  blank() { return { off: new V3(), W: 0, roll: 0, curl: this.style.relaxed, pole: new V3(), dir: new V3(), free: 0 }; }
   // ---- the sword layer's interface (nothing to draw / sheathe)
   get drawn() { return false; }
   get busy() { return false; }
@@ -112,7 +142,7 @@ export class AttackLayer {
   engage() { this.engT = 0; }                     // raise the guard (a fighter that is sizing somebody up)
   hitStop(sec) { this.stop = Math.max(this.stop, sec); } // a blow landed: the layer's own clock nearly stops for a moment (weight)
   // a blow landed on me: the moves in progress fade out (they do not vanish)
-  interrupt(sec = 0.16) { for (const s of this.sw) if (s.kt === undefined) { s.kt = 0; s.kd = sec; } this.queued = null; this.pending = null; }
+  interrupt(sec = 0.16) { for (const s of this.sw) if (s.kt === undefined) { s.kt = 0; s.kd = sec; } this.queued = null; this.pending = null; this.script = null; }
   // the player's buttons: light / heavy attack (a press while a move is under way is buffered into the next one)
   attack(heavy = false) {
     if (!heavy && this.queued?.kind === this.style.heavy) return false; // (a heavy attack is waiting for its slot: no light one jumps the queue)
@@ -123,7 +153,11 @@ export class AttackLayer {
     return this.queue(kind, side);
   }
   // the special buttons (Q / R / F): one named move each
-  special(key) { const kind = this.style.specials?.[key]; if (!kind || !this.table[kind]) return false; return this.queue(kind, this.table[kind].side ?? null, true); }
+  special(key) {
+    const kind = this.style.specials?.[key], sc = this.style.scripts?.[kind]; // (a script = a scripted run of moves: the robot's barrage)
+    if (sc) { if (this.script?.length) return false; this.script = sc.map((x) => x.slice()); return true; }
+    if (!kind || !this.table[kind]) return false; return this.queue(kind, this.table[kind].side ?? null, true);
+  }
   queue(kind, side, special = false) { if (this.swing(kind, side)) { this.queued = null; return true; } if (!(this.queued?.kind === this.style.heavy && kind !== this.style.heavy)) this.queued = { kind, side, t: 0.35, special }; return false; } // (a held light attack must not bump a waiting heavy one)
   // start a move (kind / side optional: the next one of a savage random combo). false while the arms are still busy with the last one.
   swing(kind = null, side = null, special = false) {
@@ -140,7 +174,7 @@ export class AttackLayer {
     const d = K.d.map((x) => x / sp), warm = this.style.guard ? 0.2 * (1 - clamp(this.eng, 0, 1)) : 0; // (a blow from rest: the arm first has to come up, which takes a moment)
     d[0] += warm; const T = K.T / sp + warm;
     this.n++; this.last = kind; this.idle = 0; this.engT = 0;
-    this.sw.push({ kind, side: K.both ? 'B' : this.side, t: 0, d, T, amp, hit: false, as: 0, ws: 0, ar: 0, lin: !!K.lin, impulse: K.impulse * amp, knock: K.knock, blade: false, parts: K.parts ?? HAND_PARTS[K.both ? 'B' : this.side],
+    this.sw.push({ kind, side: K.both ? 'B' : this.side, t: 0, d, T, amp, hit: false, as: 0, ws: 0, ar: 0, lin: !!K.lin, impulse: K.impulse * amp, knock: K.knock, lift: K.lift, blade: false, parts: K.parts ?? HAND_PARTS[K.both ? 'B' : this.side],
       chain: d[0] + d[1] + (this.style.cancel > 0 ? d[2] + this.style.cancel * d[3] : (K.chain ?? 0.5) * d[2]) });
     return true;
   }
@@ -157,7 +191,7 @@ export class AttackLayer {
 
   step(h, standing) {
     this.act = clamp(this.act + (standing ? h : -h) / 0.35, 0, 1);
-    if (!standing) { this.sw.length = 0; this.queued = null; this.eng = 0; this.engv = 0; this.out.L = this.blank(); this.out.R = this.blank(); return; }
+    if (!standing) { this.sw.length = 0; this.queued = null; this.script = null; this.eng = 0; this.engv = 0; this.out.L = this.blank(); this.out.R = this.blank(); return; }
     const hh = this.stop > 0 ? h * 0.12 : h, tl = this.style.torsoLag; this.stop = Math.max(0, this.stop - h);
     for (const s of this.sw) {
       s.t += hh; const e = env(s), f = fade(s);
@@ -170,8 +204,9 @@ export class AttackLayer {
     const G = this.style.guard, want = G && (this.pin || this.engT < G.hold || this.swinging) ? 1 : 0;
     if (G) { follow(this, 'eng', want, want > this.eng ? 0.09 : 0.22, h); this.eng = clamp(this.eng, 0, 1); }
     if (this.queued) { this.queued.t -= h; if (this.queued.t <= 0) this.queued = null; else if (this.swing(this.queued.kind, this.queued.side, this.queued.special)) this.queued = null; }
-    if (this.frenzy && this.act > 0.99) { if (this.style.combo) this.attack(false); else this.swing(); }
-    this.refresh();
+    if (this.script?.length && this.act > 0.99) { const [k, sd] = this.script[0]; if (this.swing(k, sd, true)) this.script.shift(); } // (the script's next move starts as soon as the last one has landed and recovered)
+    if (this.frenzy && this.act > 0.99 && !this.script?.length) { if (this.style.combo) this.attack(false); else this.swing(); }
+    this.refresh(h);
   }
 
   // ---- the blend. For each hand: the moves in progress (weights = their ownership), the guard (what is left, scaled by the engagement) and the walker's own arms (the rest)
@@ -180,7 +215,7 @@ export class AttackLayer {
     return G ? { off: new V3(m * G.hand[0], G.hand[1], G.hand[2]).multiplyScalar(this.sa), roll: (G.roll ?? 0) + this.style.rollBase, curl: G.fist ?? this.style.relaxed, pole: new V3(m * (G.pole?.[0] ?? -0.15), G.pole?.[1] ?? -1, G.pole?.[2] ?? -0.2).normalize() } : null;
   }
   has(s, side) { return s.side === 'B' || s.side === side; }
-  refresh() {
+  refresh(h = 1 / 120) {
     for (const side of ['L', 'R']) {
       const m = side === 'L' ? -1 : 1, o = this.out[side], gd = this.guardOf(side), terms = [];
       let ws = 0;
@@ -189,23 +224,33 @@ export class AttackLayer {
         if (w < 1e-4) continue;
         const K = this.table[s.kind], h = K.hand, a = e.a, k = 4 * clamp(a, 0, 1) * (1 - clamp(a, 0, 1)), f = this.sa * s.amp, ar = clamp(s.ar, 0, 1);
         terms.push({ w, off: new V3(m * (lerp(h.cock[0], h.end[0], a) + h.arc[0] * k), lerp(h.cock[1], h.end[1], a) + h.arc[1] * k, lerp(h.cock[2], h.end[2], a) + h.arc[2] * k).multiplyScalar(f),
-          roll: lerp(K.roll[0], K.roll[1], ar) + this.style.rollBase, curl: lerp(K.fist[0], K.fist[1], clamp(a, 0, 1)), pole: K.pole ? new V3(m * K.pole[0], K.pole[1], K.pole[2]).normalize() : null });
+          roll: lerp(K.roll[0], K.roll[1], ar) + this.style.rollBase, curl: lerp(K.fist[0], K.fist[1], clamp(a, 0, 1)), free: K.pole === 'free' ? 1 : 0, pole: K.pole && K.pole !== 'free' ? (K.poleEnd ? new V3(m * lerp(K.pole[0], K.poleEnd[0], a), lerp(K.pole[1], K.poleEnd[1], a), lerp(K.pole[2], K.poleEnd[2], a)) : new V3(m * K.pole[0], K.pole[1], K.pole[2])).normalize() : null });
         ws += w;
       }
       if (ws > 1) for (const t of terms) t.w /= ws;
       ws = Math.min(1, ws);
+      if (gd && terms.length > 1) { const wm = Math.max(...terms.map((t) => t.w)), via = 2 * (ws - wm); if (via > 1e-4) terms.push({ w: via, off: gd.off, roll: gd.roll, curl: gd.curl, pole: gd.pole }); } // (two moves of one hand cross-fading: the hand travels THROUGH the guard, never through the shoulder: a cock behind the body to the end of a blow across it are opposite directions)
       const g = gd ? (1 - ws) * clamp(this.eng, 0, 1) * (this.style.guard.own ?? 1) * this.act : 0; // the guard's share
       if (g > 1e-4) terms.push({ w: g, off: gd.off, roll: gd.roll, curl: gd.curl, pole: gd.pole });
       const W = terms.reduce((a, t) => a + t.w, 0);
       o.W = Math.min(1, W);
       if (W < 1e-4) { o.roll = 0; o.curl = this.style.relaxed; o.off.set(0, 0, 0); o.pole.set(0, 0, 0); continue; }
-      o.off.set(0, 0, 0); o.pole.set(0, 0, 0); o.roll = 0; let curl = 0, pw = 0;
-      for (const t of terms) { o.off.addScaledVector(t.off, t.w / W); o.roll += t.w * t.roll; if (t.pole) { o.pole.addScaledVector(t.pole, t.w); pw += t.w; } }
+      o.off.set(0, 0, 0); o.pole.set(0, 0, 0); o.roll = 0; let curl = 0, pw = 0, fw = 0;
+      let rr = 0; const dv = new V3(); // (blend in polar form: the DIRECTIONS and the RADII from the shoulder are averaged, so a cock behind the shoulder blended with a guard in front never drags the hand through the shoulder: the elbow IK has no defined bend there and the arm flipped)
+      for (const t of terms) { const r = t.off.length(); o.off.addScaledVector(t.off, t.w / W); rr += (t.w / W) * r; if (r > 1e-5) dv.addScaledVector(t.off, t.w / (W * r)); o.roll += t.w * t.roll; fw += (t.w / W) * (t.free ?? 0); if (t.pole) { o.pole.addScaledVector(t.pole, t.w); pw += t.w; } }
+      { const rmin = 0.27 * this.armLen, e = 0.04, r = 0.5 * (rr + rmin + Math.sqrt((rr - rmin) * (rr - rmin) + e * e)); // (a smooth floor: the arm never folds up against the shoulder)
+        if (dv.lengthSq() > 0.04) o.dir.lerp(dv.normalize(), 0.6).normalize(); else if (o.off.lengthSq() > 1e-6 && o.dir.lengthSq() < 1e-6) o.dir.copy(o.off).normalize(); // (hysteresis: when the directions cancel out the hand keeps the last good one)
+        if (o.dir.lengthSq() > 1e-6) o.off.copy(o.dir).multiplyScalar(r); }
       { const d = o.off.length(), L0 = 0.8 * this.armLen, K = 0.15 * this.armLen; if (d > L0) o.off.multiplyScalar((L0 + K * Math.tanh((d - L0) / K)) / d); } // the arm never quite straightens (the elbow angle changes very fast near full extension): a soft reach limit at ~93%
       o.roll *= D; // (the roll is not normalised: it goes to 0 with the ownership, like the arm itself)
       for (const t of terms) curl += (t.w / W) * t.curl;
       o.curl = lerp(this.style.relaxed, curl, Math.min(1, W)); // fingers: relaxed hands, a fist through a blow (clenched from the cock on)
       if (pw > 0) o.pole.divideScalar(pw);
+      o.free = fw;
+      if (o.pole.lengthSq() > 1e-6) { // the elbow side follows its target like a critically damped spring: where the bend plane is nearly (anti)parallel to the reach a small change of the pole swings the elbow a long way round the arm's axis, this keeps that swing smooth
+        if (o.pq) { const tau = 0.045; o.pv.addScaledVector(o.pole.clone().sub(o.pq).multiplyScalar(1 / (tau * tau)).addScaledVector(o.pv, -2 / tau), h); o.pq.addScaledVector(o.pv, h); o.pole.copy(o.pq).normalize(); }
+        else { o.pq = o.pole.clone(); o.pv = new V3(); }
+      } else o.pq = null;
     }
   }
 
@@ -233,6 +278,6 @@ export class AttackLayer {
     if (this.act < 0.001 || o.W < 0.001) return null;
     const { P, Qw, I } = ctx, pos = this.sh[side].clone().applyQuaternion(Qw[I.chest]).add(P[I.chest]).add(o.off.clone().applyQuaternion(Qw[I.chest]));
     const pole = o.pole.lengthSq() > 1e-6 ? o.pole.clone().normalize().applyQuaternion(Qw[I.chest]) : null;
-    return { pos, w: o.W, quat: null, wq: 0, pole, roll: o.roll };
+    return { pos, w: o.W, quat: null, wq: 0, pole, roll: o.roll, free: o.free ?? 0 };
   }
 }

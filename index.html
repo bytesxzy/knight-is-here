@@ -10,7 +10,7 @@
   html, body { margin: 0; height: 100%; background: #0e1014; overflow: hidden; color: #e8e6e1; font: 13px/1.45 system-ui, "Segoe UI", sans-serif; }
   canvas { display: block; }
   #loading { position: fixed; inset: 0; display: grid; place-items: center; font-size: 15px; letter-spacing: .04em; color: #b9b4a8; }
-  #ui { position: fixed; top: 14px; left: 14px; width: 244px; padding: 12px 14px 10px; background: rgba(14, 16, 20, .74);
+  #ui { position: fixed; top: 14px; left: 14px; width: 268px; max-height: calc(100% - 28px); overflow-y: auto; padding: 12px 14px 10px; background: rgba(14, 16, 20, .74);
         backdrop-filter: blur(6px); border: 1px solid rgba(255, 255, 255, .1); border-radius: 10px; }
   #ui h1 { margin: 0 0 2px; font-size: 14px; font-weight: 650; letter-spacing: .02em; }
   #state { color: #d9b36a; margin-bottom: 10px; min-height: 1.4em; }
@@ -20,6 +20,9 @@
   button { flex: 1; background: #232830; color: inherit; border: 1px solid rgba(255, 255, 255, .14); border-radius: 6px; padding: 6px 8px; font: inherit; cursor: pointer; }
   button:hover { background: #2d343e; }
   button.on { background: #3a3425; border-color: #d9b36a; }
+  .moves { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; }
+  .moves .mv { flex: none; text-align: left; padding: 5px 8px; }
+  kbd { display: inline-block; min-width: 34px; margin-right: 4px; padding: 0 5px; border: 1px solid rgba(255, 255, 255, .22); border-radius: 4px; background: #14171c; color: #d9b36a; font: 11px/16px ui-monospace, monospace; text-align: center; }
   button:disabled { opacity: .5; cursor: default; }
   .check { display: flex; gap: 6px; align-items: center; margin: 0 0 8px; color: #b9b4a8; }
   .npcs { color: #8fb1d9; margin: -6px 0 10px; font-size: 12px; min-height: 1.3em; }
@@ -44,12 +47,11 @@
   <div class="row" id="ctlRow"></div>
   <label><span>Ragdoll amount</span><span id="ragv">25%</span></label>
   <input id="rag" type="range" min="0" max="100" value="25">
-  <div class="row"><button id="draw">Draw sword (F)</button></div>
-  <div class="row"><button id="jump" hidden>Jump (Space)</button><button id="swing">Punch (Space)</button><button id="heavy">Haymaker (E)</button></div>
+  <div id="moves" class="moves"></div>
   <div class="row"><button id="knock">Knock down</button><button id="getup">Stand up now</button><button id="reset">Reset</button></div>
   <label class="check"><input id="auto" type="checkbox" checked> get up automatically</label>
   <label class="check" id="aiRow"><input id="ai" type="checkbox" checked> NPCs fight back when hit (neutral otherwise)</label>
-  <p class="hint">You drive one character; the others are NPCs: they leave you alone until you hit them, then they fight back (and calm down again). Click a character = shove (shift = hard). <b>WASD</b> walk (Shift: slow, skeleton / robot: run). <b>F</b> sword. Knight / skeleton: <b>Space</b> attack (hold = combo), <b>E</b> heavy. Robot: <b>Space</b> jump (hold a direction to leap), <b>E</b> punch combo, <b>R</b> hammer. <b>Tab</b> switch character. Drag = orbit, wheel = zoom.</p>
+  <p class="hint">You drive one character; the others are NPCs: neutral until you hit them, then they fight back. <b>WASD</b> walk (Shift: slow / run) · <b>Left click</b> attack (hold = combo) · <b>E</b> heavy · <b>Q / R / F</b> specials · <b>Space</b> jump (robot) / guard · <b>Tab</b> switch character · <b>Right-drag</b> orbit · wheel zoom · Ctrl+click = shove.</p>
 </div>
 <script type="module" src="src/main.js"></script>
 </body>

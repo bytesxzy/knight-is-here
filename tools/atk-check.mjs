@@ -8,7 +8,7 @@ import { SWORD_SWINGS } from '../src/sword.js';
 const V3 = THREE.Vector3, k = await loadChar(), L = k.sword, I = k.rig.idx, out = new V3(), f = (x, d = 1) => x.toFixed(d);
 for (let s = 0; s < 2 * 120; s++) k.step();
 const kinds = process.argv.slice(2).filter((a) => !a.includes('='));
-const sword = ['slash', 'back', 'chop'], fists = L.fists ? Object.keys(L.fists.table) : Object.keys(L.table ?? {});
+const sword = ['slash', 'back', 'chop', 'thrust', 'rise'], fists = L.fists ? Object.keys(L.fists.table) : Object.keys(L.table ?? {});
 if ((kinds.length ? kinds : sword).some((x) => sword.includes(x)) && L.request) { L.request(true); for (let s = 0; s < 4 * 120; s++) k.step(); }
 if (process.env.ROLL) for (const K of Object.values(SWORD_SWINGS)) K.nRoll = +process.env.ROLL;
 for (const kind of kinds.length ? kinds : [...(L.swordQueue ? sword : []), ...fists]) {

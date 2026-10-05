@@ -1,7 +1,7 @@
 // How smooth is the combat? Runs scripted fights (a held light attack, heavy attacks, optional walking) in the physics sim and measures, per physics step,
 //  - the GHOST (the animation as authored): hand targets and joint rotations -> "pops" = velocity / acceleration jumps in a single step
 //  - the PHYSICAL body (what is drawn): jitter of the hands / chest / head / pelvis (acceleration above ~6 Hz) and the hands' error against the ghost
-// usage: [RIG=knight|skeleton|robot] node tools/combat-smooth.mjs [fists|sword|heavy|walk|mixed] [seconds] [verbose]
+// usage: [RIG=knight|skeleton|robot] node tools/combat-smooth.mjs [fists|sword|heavy|walk|mixed|special] [seconds] [verbose]
 import * as THREE from '#three';
 import { loadChar } from './rig-util.mjs';
 import { worldPose } from '../src/ghost.js';
@@ -18,12 +18,13 @@ let prev = null, prevW = null;
 const stat = { pops: [], gj: {}, ph: {} };
 const series = (o, key, v) => (o[key] ??= []).push(v);
 const sw = (c) => [...(c.fists?.sw ?? []), ...(c.swings ?? []), ...(c.sw ?? [])].map((s) => `${s.kind}@${s.t.toFixed(2)}`).join(',');
-let nextHeavy = 1.0, t = 0;
+let nextHeavy = 1.0, t = 0, nextSp = 0.8, spI = 0; const SPK = process.env.KEYS ? process.env.KEYS.split('') : ['Q', 'R', 'F'];
 if (mode === 'walk') k.walk.command(new V3(0, 0, 1), 1, !!k.walk.canRun && !!process.env.RUN);
 const total = Math.round(secs * 120);
 for (let s = 0; s < total; s++, t += h) {
   const heavy = mode === 'heavy' || mode === 'mixed';
-  if (mode !== 'heavy') L.attackHeld = true;
+  if (mode !== 'heavy' && mode !== 'special') L.attackHeld = true;
+  if (mode === 'special' && t >= nextSp) { L.special(SPK[spI++ % SPK.length]); nextSp = t + 1.5; }
   if (heavy && t >= nextHeavy) { L.attack(true); nextHeavy = t + (mode === 'mixed' ? 2.6 : 1.6); }
   k.step(); k.readState();
   if (k.state !== 'stand') { console.log(`FELL at t=${f(t, 2)}`); break; }

@@ -4,11 +4,21 @@ Code-driven animation for three rigged characters, no Blender: `Untitled.glb` (t
 
 **Run:** double-click `start.bat` (needs Node), or `node server.js` and open <http://localhost:5173>.
 
-**Controls:** **WASD / arrows** = walk (relative to the camera view; Shift = slow for the knight, **run** for the skeleton / robot) · drag = orbit · wheel = zoom · click a character = shove it (shift = hard hit, knocks it down; shoving an NPC provokes it) ·
-**Play: Knight / Skeleton / Robot** (or **Tab**) = who the keyboard, the slider and the buttons drive · **F** = draw / sheathe the knight's sword ·
-**Knight / skeleton:** **Space** = attack (tap, or hold for a combo): the knight punches (jab - cross - hook - cross ...) with the sword sheathed and swings it (forehand / backhand cuts) once it is drawn, the skeleton goes into its savage swings · **E** = heavy attack (haymaker / overhead chop / the skeleton's two-handed smash) ·
-**Robot:** **Space** = jump (hold a direction: a leap of ~4 m, or jump while running) · **E** = piston-punch combo (hold) · **R** = hammer blow ·
-`Ragdoll amount` slider (default 25%) · Knock down / Stand up now / Reset · "get up automatically" · "NPCs fight back when hit" (off = the other two just stand there).
+**Controls** (the same scheme on every character; the moves behind the keys differ, the panel on the left lists them for whoever you drive):
+- **WASD / arrows** walk (relative to the camera; Shift = slow for the knight, **run** for the skeleton / robot) · **Tab** (or the *Play:* buttons) = who you drive
+- **Left click** = the light attack (hold = the combo keeps going; `J` does the same from the keyboard) · **E** = heavy attack · **Q / R** = special moves · **F** = a third special (the knight: draw / sheathe the sword) · **Space** = jump (robot; hold a direction to leap) / keep the guard up (hold, knight and skeleton)
+- **Right-drag** = orbit, **wheel** = zoom · **Ctrl+click** (or a touch tap) = shove the character under the pointer (shift = hard)
+- Fighting standing still, you turn toward the nearest foe by yourself (aim assist, within 5 m)
+- `Ragdoll amount` slider (default 25%) · Knock down / Stand up now / Reset · "get up automatically" · "NPCs fight back when hit" (off = the other two just stand there)
+
+| | click (combo) | E (heavy) | Q | R | F |
+|---|---|---|---|---|---|
+| **Knight**, sheathed | jab - cross - hook - cross | haymaker (knocks down) | uppercut (launcher) | elbow strike | draw sword |
+| **Knight**, sword drawn | forehand - backhand cuts | overhead chop (knocks down) | lunging two-handed thrust | rising cut (launcher) | sheathe |
+| **Skeleton** | slash - hook - backhand - hook | two-handed smash | spear-hand lunge stab | double claw rake (an X) | rising claw (launcher) |
+| **Robot** | piston - piston - piston - sweep - chop | hammer blow | piston barrage (7 rapid pistons) | launching uppercut | thunder clap (two hands, knocks down) |
+
+Light moves shove, heavy moves and launchers knock the target down. The NPCs use their specials too (now and then, at close range).
 
 ## How it works
 | layer | file | job |
@@ -26,6 +36,14 @@ Code-driven animation for three rigged characters, no Blender: `Untitled.glb` (t
 | skin / scene | `src/skin.js`, `src/arena.js`, `src/main.js`, `index.html` | writes body rotations onto the bones; tiny arena; UI |
 
 `ragdoll` (0–1) scales joint strength and the balance assist: ~0–25% stands tall, 50–80% slumps more and more, 100% stays limp.
+
+## Smoothness of the combat (what was measured and fixed)
+`node tools/combat-smooth.mjs [fists|sword|heavy|walk|mixed|special] [seconds]` (env `RIG=`, `KEYS=QRF` for the specials) measures the ghost's pops (accelerations of the hands / arm joints in one step) and the physical jitter; `node tools/flip-trace.mjs [seconds] [thr]` (env `RIG=`, `MIXED=1`, `SWORD=1`) finds one-step flips of the ghost's arm joints and prints what the layer asked for. Before / after on the same scripted fights: the skeleton's upper-arm angular acceleration p99 39,000 -> ~1,500 rad/s2 (max 43,000 -> ~2,500), the knight's sword combo p99 18,900 -> ~350 (hand jitter 220 -> 140, head jitter 47 -> 12), the robot's hammer pops 37,000 -> ~1,900, hand error vs the ghost 11 -> 7 cm (skeleton). Causes and fixes:
+- **the hand passing through the shoulder** (a cock behind the body cross-faded with the end of a blow across it are opposite directions: the elbow IK has no defined bend there): `AttackLayer.refresh` blends the hand targets in polar form (directions + radii), keeps a smooth minimum reach, and routes a cross-fade of two moves through the guard; the ghost blends the layer's hand into the walker's along the shoulder's sphere (`blendReach`)
+- **an arm that is nearly straight** (the two-handed sword guard) flipped about its axis between a forehand and a backhand cut: `SwordLayer.limitReach` (soft reach limit at ~92%)
+- **a bend side (pole) antiparallel to the reach** (overhead blows): the twist's authority fades out where the pole is (anti)parallel to the reach, the twist angle is tracked through time (no +-PI wrap), the walker's pole and the layer's are blended along the shortest arc (`slerpDir`); `pole: 'free'` in a move table = the walker's own elbow (smoothest for the robot and for the skeleton's two-handed moves), the knight's punches keep explicit poles
+- the elbow side follows its target like a critically damped spring; a landed blow slows the attacker's own move clock for 35 / 70 ms (`hitStop`, weight)
+- the **robot's gait** (`ROBOT.style` in `rigs.js`, found with `tools/style-scan.mjs`): a less boxy foot path, a slower metronome and a higher lift; the feet used to slam down at ~1 m/s (mean) and now land at ~0.1 m/s, foot tracking error 6.6 -> 5.7 cm, foot slip 0.9 -> 0.4 m/s
 
 ## NPC behaviour (`src/npc.js`)
 Every character you are not driving has a brain (`NpcAI`), and by default it is **neutral**: it stands there (the robot's head glances around, the others idle) and never starts anything. States: `calm → fight → (stunned) → gloat → calm`.
@@ -65,7 +83,7 @@ All characters share one physics world: each one's fitted colliders touch the wo
 
 ## Dev tools (headless, no browser)
 - Most tools take the character from env `RIG=skeleton|robot` (default knight): `RIG=robot node tools/walk-sim.mjs`, `RIG=skeleton node tools/fuzz-getup.mjs 8 1 walk`, ... (`turn-check.mjs` takes it as an argument).
-- `node tools/npc-test.mjs <attacker> <victim> [fists|sword]` (attacker / victim: `knight|skeleton|robot`; env `TRACE=1` prints every state change) – three characters in one world, one scripted as the "player": 12 s of nobody attacking (the NPCs must stay calm, zero hits), then it hits the victim for 28 s (the victim must turn on it and fight back), then it stops (the victim must calm down again; a knight sheathes his sword)
+- `PASSIVE=1 node tools/npc-test.mjs ...` = the victims do not fight back (the attacker's own hit rate); `node tools/npc-test.mjs <attacker> <victim> [fists|sword]` (attacker / victim: `knight|skeleton|robot`; env `TRACE=1` prints every state change) – three characters in one world, one scripted as the "player": 12 s of nobody attacking (the NPCs must stay calm, zero hits), then it hits the victim for 28 s (the victim must turn on it and fight back), then it stops (the victim must calm down again; a knight sheathes his sword)
 - `RIG=robot node tools/jump-sim.mjs [up|leap|run|chain|turn] [verbose]` – the robot's jumps in the physics (apex, distance, landing, ends standing); `RIG=robot node tools/style-scan.mjs 'mech=0.7,lift=0.06' 'mech=0.85' ...` – try gait-style variants (foot tracking error, touchdown speed, wobble); `node tools/glb-info.mjs file.glb` – bones / meshes / bounds of a model
 - `node tools/sim-test.mjs forward|back|side [ragdoll] [seconds]` – full knock-down → get-up timeline
 - `node tools/ghost-check.mjs` – kinematic keyframe sanity (reach errors, ground contact)
@@ -81,4 +99,4 @@ All characters share one physics world: each one's fitted colliders touch the wo
 - `node tools/fuzz-attack.mjs [trials] [seed]` – knock the knight over in the middle of punches / sword swings and check he gets up and can attack again
 - `node tools/knight-attack.mjs [punch|sword|heavy|chop] [seconds] [ragdoll] [walk] [verbose]` – the knight's attack moves in the physics sim (torso / hand tracking, blade direction with `BLADE=1`); `[RIG=skeleton|robot] node tools/atk-check.mjs [kind ...]` – reach + joint limits of every move; `RIG=skeleton node tools/roll-check.mjs` – the hand's turn about the forearm (ghost vs physical); `node tools/torque-log.mjs [punch|sword|...]` – which controller torques the chest when it spins fast; `node tools/hand-analyze.mjs skeleton.glb` – splits a hand mesh into palm / finger / thumb parts
 - `node tools/build-profile.mjs Untitled.glb src/profile.json` / `... skeleton.glb src/profile-skeleton.json skeleton` / `... robot.glb src/profile-robot.json robot` – re-fit colliders if a model changes; `view.html?m=skeleton.glb&fits=1&bones=1&cam=x,y,z&look=x,y,z` shows a model with its fitted colliders / bones
-- Browser debug: `?film=ghost` / `?film=sim&dir=0..3` render a filmstrip of the whole get-up; `?film=sword` (kinematic) / `?film=swordsim[&sheathe=1]` (physics) the sword draw (`&ps=` progress marks, `&cam=&look=&fov=`); `?film=grip` the fist on the grip; `?film=attack&mode=punch|sword[&heavy=1][&hold=1][&skip=s][&dt=s][&n=]` (add `&rig=skeleton|robot`) the attack moves; `&fist=0..1` forces the finger curl; `?film=walk` (kinematic) / `?film=walksim[&sword=1][&thr=0..1]` (physics) the gait cycle (`&rig=skeleton|robot`, `&run=1` running, `&swing=1[&kinds=slash|hook|smash]` savage swings, `&dt=0.1` seconds between frames, `&n=` frames); `?film=jump&rig=robot[&dir=up|leap|run]` the robot's jump (`&dt=`, `&n=`); `&col=1` shows the collision shapes, `&hide=1` hides the sword meshes; `window.__app.advance(seconds)` steps the sim without animation frames (the in-app browser pauses rAF while hidden).
+- Browser debug: `?film=ghost` / `?film=sim&dir=0..3` render a filmstrip of the whole get-up; `?film=sword` (kinematic) / `?film=swordsim[&sheathe=1]` (physics) the sword draw (`&ps=` progress marks, `&cam=&look=&fov=`); `?film=grip` the fist on the grip; `?film=attack&mode=punch|sword[&heavy=1][&hold=1][&skip=s][&dt=s][&n=]` (add `&rig=skeleton|robot`) the attack moves; `&kind=uppercut[&side=R]` plays one named move, `&key=Q` presses a special button; `&fist=0..1` forces the finger curl; `?film=walk` (kinematic) / `?film=walksim[&sword=1][&thr=0..1]` (physics) the gait cycle (`&rig=skeleton|robot`, `&run=1` running, `&swing=1[&kinds=slash|hook|smash]` savage swings, `&dt=0.1` seconds between frames, `&n=` frames); `?film=jump&rig=robot[&dir=up|leap|run]` the robot's jump (`&dt=`, `&n=`); `&col=1` shows the collision shapes, `&hide=1` hides the sword meshes; `window.__app.advance(seconds)` steps the sim without animation frames (the in-app browser pauses rAF while hidden).

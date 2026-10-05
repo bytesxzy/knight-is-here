@@ -24,7 +24,7 @@ export const KNIGHT = {
   name: 'knight', model: 'Untitled.glb', profile: 'src/profile.json',
   bodies: bodiesFor(KNIGHT_BONES), blend: BLEND, proxy: PROXY,
   sword: true,                       // the draw / sheathe / swing layer (sword.js)
-  fists: { swings: PUNCHES, heavy: 'haymaker', combo: [['jab', 'L'], ['cross', 'R'], ['hook', 'L'], ['cross', 'R']], rollBase: -180, relaxed: 0, torsoLag: 0.1, cancel: 0.3,
+  fists: { swings: PUNCHES, heavy: 'haymaker', combo: [['jab', 'L'], ['cross', 'R'], ['hook', 'L'], ['cross', 'R']], specials: { Q: 'uppercut', R: 'elbow' }, rollBase: -180, relaxed: 0, torsoLag: 0.1, cancel: 0.3,
     guard: { own: 1, hold: 3, spineW: 0.25, L: { hand: [0.07, 0.12, 0.20], fist: 0.9, roll: 100, pole: [-0.15, -1, -0.2] }, R: { hand: [0.08, 0.11, 0.19], fist: 0.9, roll: 90, pole: [-0.15, -1, -0.2] }, sp: { chest: 2, abd: 3, head: 5, py: -0.025 } } }, // unarmed: jab - cross - hook combo, haymaker; its neutral hand is palm-down (180 deg from palm-up)
   inertiaFloor: { abdomen: 0.4, chest: 0.9, head: 0.05, upperArm: 0.05, forearm: 0.04, hand: 0.04 }, // heavier virtual inertia of the torso and arms: stacked stiff controllers on a light body ring (see the skeleton)
   bitOrig: 15,                       // collision bit of the fitted colliders (they also touch the other characters')
@@ -41,7 +41,7 @@ export const SKELETON = {
     hand: { s: [0.9, 0.85, 0.85] }, foot: { s: [1, 1, 1] },
   },
   sword: false,
-  attack: { relaxed: 0.3, rollBase: -90, guard: { own: 0.5, hold: 1.2, spineW: 0.1, L: { hand: [0.05, 0.02, 0.17], fist: 0.5, roll: 90 }, R: { hand: [0.05, 0.02, 0.17], fist: 0.5, roll: 90 }, sp: { abd: 4, chest: 2, head: 6 } } }, // the savage-swing layer (attack.js) instead of a sword; relaxed hands curl a little, its neutral hand has the palm facing forward (90 deg from palm-up)
+  attack: { relaxed: 0.3, rollBase: -90, combo: [['slash', 'R'], ['hook', 'L'], ['backhand', 'L'], ['hook', 'R']], specials: { Q: 'stab', R: 'rake', F: 'rise' }, guard: { own: 0.5, hold: 1.2, spineW: 0.1, L: { hand: [0.05, 0.02, 0.17], fist: 0.5, roll: 90 }, R: { hand: [0.05, 0.02, 0.17], fist: 0.5, roll: 90 }, sp: { abd: 4, chest: 2, head: 6 } } }, // the savage-swing layer (attack.js) instead of a sword; relaxed hands curl a little, its neutral hand has the palm facing forward (90 deg from palm-up)
   bitOrig: 13,
   inertiaFloor: { abdomen: 0.4, chest: 0.9, head: 0.05 },  // its lumbar body is tiny: the joint controller's effective stiffness is capped by the body inertia (Ir/h^2), so it gets the knight's
   legIK: 'hinge',                   // its rest legs are knock-kneed (the knee 4.6 cm inside the hip-ankle line): the IK keys the knee hinge to the pelvis' lateral axis
@@ -65,13 +65,13 @@ export const ROBOT = {
     pelvis: { s: [0.9, 0.9, 0.9] }, abdomen: { s: [0.8, 0.9, 0.8] }, chest: { s: [0.85, 0.9, 0.85] }, head: { r: 0.065 }, hand: { s: [0.9, 0.85, 0.85] }, foot: { s: [1, 1, 1] } },
   sword: false,
   jump: { apex: 1.0, tuck: 0.02, arms: 0.25 }, // can jump (jump.js JUMP, a robot's version: legs straight down, arms nearly still)
-  attack: { swings: ROBOT_SWINGS, heavy: 'hammer', combo: [['piston', 'L'], ['piston', 'R'], ['piston', 'L'], ['sweep', 'R']], relaxed: 0, rollBase: -180, torsoLag: 0.1, cancel: 0.3,
+  attack: { swings: ROBOT_SWINGS, heavy: 'hammer', combo: [['piston', 'L'], ['piston', 'R'], ['piston', 'L'], ['sweep', 'R'], ['chop', 'L']], specials: { Q: 'barrage', R: 'uppercut', F: 'clap' }, scripts: { barrage: [['rapid', 'L'], ['rapid', 'R'], ['rapid', 'L'], ['rapid', 'R'], ['rapid', 'L'], ['rapid', 'R'], ['piston', 'R']] }, relaxed: 0, rollBase: -180, torsoLag: 0.1, cancel: 0.3,
     guard: { own: 1, hold: 2.5, spineW: 0.2, L: { hand: [0.12, 0.03, 0.13], fist: 0.75, roll: 90, pole: [-0.2, -1, -0.1] }, R: { hand: [0.12, 0.03, 0.13], fist: 0.75, roll: 90, pole: [-0.2, -1, -0.1] }, sp: { abd: 2, head: 3, py: -0.02 } } }, // piston punches (a combo), a hammer blow
   inertiaFloor: { abdomen: 0.4, chest: 0.9, head: 0.05, upperArm: 0.05, forearm: 0.04, hand: 0.04, thigh: 0.12, shin: 0.03, foot: 0.02 }, // its limbs are thin (small inertia): stacked stiff controllers on light bodies ring
   bitOrig: 12,
-  // mechanical gait: the swing foot goes straight up, across at a steady pace and straight down, the torso is held like a block (no sway / roll / twist), the
+  // mechanical gait (mech / lift / Tmin / kneeBend found with tools/style-scan.mjs: the old boxier path slammed the feet down at ~1 m/s and the foot tracking error was twice the knight's; now the feet land at ~0.05 m/s): the swing foot goes straight up, across at a steady pace and straight down, the torso is held like a block (no sway / roll / twist), the
   // elbows stay bent at a right angle, the head turns in 12-degree servo steps, the feet stay flat, and a metronome cadence
-  style: { idleScan: true, halfW: 0.215, mech: 0.85, rigid: 0.92, armReach: 0.7, armSwing: 0.6, headSnap: 12, footRoll: 0.12, lift: 0.055, bobScale: 0.5, kneeBend: 0.06, sway: 0, Tmin: 0.85,
+  style: { idleScan: true, halfW: 0.215, mech: 0.45, rigid: 0.92, armReach: 0.7, armSwing: 0.6, headSnap: 12, footRoll: 0.12, lift: 0.065, bobScale: 0.5, kneeBend: 0.08, sway: 0, Tmin: 1.0,
     run: { halfW: 0.18, mech: 0.4, rigid: 0.92, armReach: 0.62, footRoll: 0.1, pitch: 3, pitchV: 2, torso: 2, headLead: 0.3, head: 0, twist: 0.3, bank: 1.2, lift: 0.15, Tmin: 0.75 } }, // (a boxier run path / a quicker cadence whips the feet at 13+ m/s, more than the physics can follow)
 };
 

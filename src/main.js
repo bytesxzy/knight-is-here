@@ -8,7 +8,8 @@ import { Knight, Sim, STEP } from './knight.js';
 import { worldPose } from './ghost.js';
 import { SkinBinder } from './skin.js';
 import { buildArena, ARENA_R } from './arena.js';
-import { SwordVisual, TUNE, rebuild } from './sword.js';
+import { SwordVisual, TUNE, rebuild, SWORD_COMBO, SWORD_SPECIALS } from './sword.js';
+import { LABELS } from './attack.js';
 import { KNIGHT, SKELETON, ROBOT } from './rigs.js';
 import { NpcAI } from './npc.js';
 import { Combat } from './combat.js';
@@ -129,7 +130,7 @@ async function main() {
     if (!rec) return;
     ctl = rec; rag.value = Math.round(rec.ch.ragdoll * 100); $('ragv').textContent = rag.value + '%';
     for (const r of chars) r.btn.classList.toggle('on', r === rec);
-    $('draw').hidden = !rec.ch.spec.sword; $('jump').hidden = !rec.ch.jump; keys.clear();
+    keys.clear(); mouseHeld = false; movesSig = '';
     for (const r of chars) { r.ch.walk.command(null, 0); r.ch.sword.attackHeld = false; r.ai.release(); }
   };
   for (const r of chars) { const b = document.createElement('button'); b.textContent = 'Play: ' + r.name[0].toUpperCase() + r.name.slice(1); b.onclick = () => selectChar(r); r.btn = b; ctlRow.append(b); }
@@ -139,8 +140,8 @@ async function main() {
   $('reset').onclick = () => { for (const r of chars) { r.ch.reset(r.spawn.x, r.spawn.z, r.spawn.psi); r.ai.reset(); } demo = false; };
   $('getup').onclick = () => { if (ctl.ch.state === 'fall') ctl.ch.beginGetUp(); };
   let wantToggle = 0; // F while walking: he stops first, then draws / sheathes
-  const drawBtn = $('draw'), toggleSword = () => { const sw = ctl.ch.sword; if (!ctl.ch.spec.sword) return; if (!sw.toggle() && ctl.ch.walk.moving) wantToggle = clock + 3; };
-  drawBtn.onclick = toggleSword;
+  let mouseHeld = false, movesSig = '', lastAtk = -9;
+  const toggleSword = () => { const sw = ctl.ch.sword; if (!ctl.ch.spec.sword) return; if (!sw.toggle() && ctl.ch.walk.moving) wantToggle = clock + 3; };
   const keys = new Set(), fwd = new V3(), right = new V3();
   const inputDir = () => { // WASD / arrows relative to the camera view -> a world direction (null = no input)
     const ix = (keys.has('KeyD') || keys.has('ArrowRight') ? 1 : 0) - (keys.has('KeyA') || keys.has('ArrowLeft') ? 1 : 0);
@@ -150,25 +151,77 @@ async function main() {
     right.set(-fwd.z, 0, fwd.x);
     return new V3().addScaledVector(fwd, iz).addScaledVector(right, ix).normalize();
   };
-  // the buttons: a character that can jump jumps with Space and attacks with E (light) / R (heavy); the others attack with Space (light) / E (heavy)
-  const act = { jump: () => ctl.ch.jump?.request(inputDir(), 1), light: () => ctl.ch.sword.attack(false), heavy: () => ctl.ch.sword.attack(true) };
-  $('jump').onclick = act.jump; $('swing').onclick = act.light; $('heavy').onclick = act.heavy;
+  // ---- the controls (the same on every character; the moves behind the keys differ):
+  //   mouse: LEFT click = the light attack (hold = the combo keeps going), RIGHT drag = orbit, wheel = zoom
+  //   E = heavy attack, Q / R = special moves, F = a third special (the knight: draw / sheathe the sword), Space = jump (robot) / guard up (hold)
+  const L0 = () => ctl.ch.sword, FX = () => L0().fists ?? L0(), nm = (k) => LABELS[k] ?? SW_LABELS[k] ?? k;
+  const SW_LABELS = { slash: 'Forehand cut', back: 'Backhand cut', chop: 'Overhead chop', thrust: 'Lunging thrust', rise: 'Rising cut' };
+  const stamp = () => { lastAtk = clock; };
+  const act = {
+    jump: () => ctl.ch.jump?.request(inputDir(), 1),
+    light: () => { stamp(); return L0().attack(false); }, heavy: () => { stamp(); return L0().attack(true); },
+    special: (key) => { stamp(); return L0().special?.(key); },
+    f: () => (ctl.ch.spec.sword ? toggleSword() : act.special('F')),
+  };
+  // the move list of whoever is driven right now: [key, label, action]
+  const moveRows = () => {
+    const ch = ctl.ch, L = L0(), fx = FX(), drawn = !!(ch.spec.sword && L.drawn), st = fx.style ?? {}, rows = [];
+    const combo = drawn ? SWORD_COMBO : (st.combo ?? []).map((c) => c[0]);
+    rows.push(['Click', 'Combo: ' + [...new Set(combo)].map(nm).join(' · '), act.light]);
+    rows.push(['E', nm(drawn ? 'chop' : st.heavy ?? 'smash'), act.heavy]);
+    for (const k of ['Q', 'R']) { const kind = drawn ? SWORD_SPECIALS[k] : st.specials?.[k]; if (kind) rows.push([k, nm(kind), () => act.special(k)]); }
+    if (ch.spec.sword) rows.push(['F', drawn ? 'Sheathe sword' : 'Draw sword', act.f]); else if (st.specials?.F) rows.push(['F', nm(st.specials.F), act.f]);
+    rows.push(['Space', ch.jump ? 'Jump (hold a direction to leap)' : 'Guard up (hold)', ch.jump ? act.jump : null]);
+    return rows;
+  };
+  const buildMoves = () => {
+    const sig = ctl.name + (ctl.ch.sword.drawn ? '+sword' : '');
+    if (sig === movesSig) return;
+    movesSig = sig; const box = $('moves'); box.textContent = '';
+    for (const [key, label, fn] of moveRows()) {
+      const b = document.createElement('button'); b.className = 'mv'; b.innerHTML = `<kbd>${key}</kbd> ${label}`;
+      if (fn) b.onclick = fn; else b.disabled = true;
+      box.append(b);
+    }
+  };
   addEventListener('keydown', (e) => {
-    if (e.code === 'KeyF' && !e.repeat) toggleSword();
-    const jumper = !!ctl.ch.jump;
-    if (e.code === 'Space' && !e.repeat) (jumper ? act.jump : act.light)();
-    if (e.code === 'KeyE' && !e.repeat) (jumper ? act.light : act.heavy)();
-    if (e.code === 'KeyR' && !e.repeat && jumper) act.heavy();
-    if (e.code === 'Tab') { e.preventDefault(); selectChar(chars[(chars.indexOf(ctl) + 1) % chars.length]); }
+    if (e.target.tagName === 'INPUT' && e.target.type !== 'checkbox') return;
+    if (!e.repeat) {
+      if (e.code === 'KeyE') act.heavy();
+      else if (e.code === 'KeyQ' || e.code === 'KeyR') act.special(e.code === 'KeyQ' ? 'Q' : 'R');
+      else if (e.code === 'KeyF') act.f();
+      else if (e.code === 'Space' && ctl.ch.jump) act.jump();
+      else if (e.code === 'KeyJ') act.light();
+      else if (e.code === 'Tab') { e.preventDefault(); selectChar(chars[(chars.indexOf(ctl) + 1) % chars.length]); }
+    }
     if (e.code.startsWith('Arrow') || e.code === 'Space') e.preventDefault();
     keys.add(e.code);
   });
   addEventListener('keyup', (e) => keys.delete(e.code));
-  addEventListener('blur', () => keys.clear());
+  addEventListener('blur', () => { keys.clear(); mouseHeld = false; });
+  // the mouse: the left button attacks (a press = the light attack, held = the combo goes on); the right button orbits the camera
+  const cv = renderer.domElement;
+  controls.mouseButtons = { LEFT: -1, MIDDLE: THREE.MOUSE.DOLLY, RIGHT: THREE.MOUSE.ROTATE };
+  cv.addEventListener('contextmenu', (e) => e.preventDefault());
+  cv.addEventListener('pointerdown', (e) => { if (e.pointerType === 'mouse' && e.button === 0 && !e.ctrlKey) { mouseHeld = true; act.light(); } });
+  addEventListener('pointerup', (e) => { if (e.button === 0) mouseHeld = false; });
+  const foe = () => { // the nearest character still on its feet, within 5 m
+    const P = ctl.P[0]; let best = null, bd = 5;
+    for (const r of chars) if (r !== ctl && r.ch.state === 'stand') { const d = Math.hypot(r.P[0].x - P.x, r.P[0].z - P.z); if (d < bd) { bd = d; best = r; } }
+    return best && { r: best, d: bd };
+  };
   const steer = () => {
-    const w = ctl.ch.walk, shift = keys.has('ShiftLeft') || keys.has('ShiftRight'), att = ctl.ch.sword;
-    att.attackHeld = keys.has(ctl.ch.jump ? 'KeyE' : 'Space'); // hold the attack key: the knight keeps punching / swinging, the skeleton goes into its frenzy, the robot into its piston combo
+    const w = ctl.ch.walk, shift = keys.has('ShiftLeft') || keys.has('ShiftRight'), att = L0(), fx = FX();
+    att.attackHeld = mouseHeld || keys.has('KeyJ'); // hold the attack button: the combo goes on (knight punches / swings, skeleton frenzy, robot pistons)
+    if ('pin' in fx) fx.pin = keys.has('Space') && !ctl.ch.jump; // Space: keep the guard up
     const d = inputDir();
+    if (!d && !wantToggle && ctl.ch.state === 'stand' && (att.swinging || att.attackHeld || clock - lastAtk < 0.8)) { // aim assist: while fighting and standing still, turn toward the nearest foe
+      const f = foe();
+      if (f) {
+        const P = ctl.P[0], dir = new V3(f.r.P[0].x - P.x, 0, f.r.P[0].z - P.z).normalize(), err = Math.abs(Math.atan2(Math.sin(Math.atan2(dir.x, dir.z) - ctl.ch.ghost.psi), Math.cos(Math.atan2(dir.x, dir.z) - ctl.ch.ghost.psi)));
+        if (err > 0.12) return w.command(dir, f.d > 1.1 ? 0.3 : 0.07);
+      }
+    }
     if (!d || wantToggle) return w.command(null, 0);
     w.command(d, shift && !w.canRun ? w.slowThrottle : 1, shift && w.canRun); // Shift: slow (knight) / run (skeleton, robot)
   };
@@ -177,23 +230,20 @@ async function main() {
   const label = { fall: 'ragdoll · limp', getup: 'getting up…', stand: 'standing' }, cap = (s) => s[0].toUpperCase() + s.slice(1);
   setInterval(() => {
     const ch = ctl.ch, sw = ch.sword, j = ch.jump;
-    $('state').textContent = ctl.name + ': ' + label[ch.state] + (j?.active ? ' · jumping' : ch.walk.moving ? (ch.walk.gait > 0.5 ? ' · running' : ' · walking') : '') + (sw.busy ? (sw.dir > 0 ? ' · drawing sword' : ' · sheathing sword') : sw.drawn ? ' · sword drawn' : '') + (sw.swinging ? (sw.drawn ? ' · swinging' : ' · punching') : '');
+    $('state').textContent = ctl.name + ': ' + label[ch.state] + (j?.active ? ' · jumping' : ch.walk.moving ? (ch.walk.gait > 0.5 ? ' · running' : ' · walking') : '') + (sw.busy ? (sw.dir > 0 ? ' · drawing sword' : ' · sheathing sword') : sw.drawn ? ' · sword drawn' : '') + (sw.swinging ? (sw.drawn ? ' · swinging' : ch.spec.sword ? ' · punching' : ' · attacking') : '');
     $('npcs').textContent = chars.filter((r) => r !== ctl).map((r) => `${cap(r.name)}: ${r.ch.state !== 'stand' ? 'down' : r.ai.enabled ? r.ai.label : 'off'}`).join(' · ');
-    $('jump').textContent = 'Jump (Space)';
-    $('swing').textContent = j ? 'Punch (E)' : ch.spec.sword ? (sw.drawn ? 'Swing sword (Space)' : 'Punch (Space)') : 'Swing (Space)';
-    $('heavy').textContent = j ? 'Hammer (R)' : ch.spec.sword ? (sw.drawn ? 'Overhead chop (E)' : 'Haymaker (E)') : 'Smash (E)';
-    drawBtn.textContent = sw.drawn ? 'Sheathe sword (F)' : 'Draw sword (F)';
-    drawBtn.disabled = ch.state !== 'stand' || sw.busy;
+    buildMoves();
   }, 120);
   $('ui').addEventListener('pointerup', () => setTimeout(() => document.activeElement?.blur?.(), 0)); // (a focused button / checkbox / slider would also react to Space / arrow keys)
   selectChar(ctl);
 
-  // click a character to shove it (shift = hard hit); dragging orbits as usual. Shoving counts as attacking it.
+  // ctrl+click / tap a character to shove it (shift = hard hit). Shoving counts as attacking it.
   const ray = new THREE.Raycaster();
   let down = null;
   renderer.domElement.addEventListener('pointerdown', (e) => { down = { x: e.clientX, y: e.clientY, t: performance.now() }; });
   renderer.domElement.addEventListener('pointerup', (e) => {
     if (!down) return;
+    if (e.pointerType === 'mouse' && !e.ctrlKey) { down = null; return; } // (a mouse click attacks; ctrl+click / a touch tap shoves the character under the pointer)
     const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y), held = performance.now() - down.t;
     down = null;
     if (moved > 5 || held > 400) return;
@@ -315,7 +365,10 @@ async function main() {
       if (sword && L.request) { L.request(true); for (let s = 0; s < 5 * 120; s++) knight.step(); }
       for (let s = 0; s < Math.round(+(params.get('pre') ?? 0) * 120); s++) knight.step();
       if (params.has('pin')) (L.fists ?? L).pin = true; // &pin=1: the guard stays up (&noatk=1: no attack at all: look at the stance)
-      if (!params.has('noatk')) L.attack(heavy); if (params.has('hold')) L.attackHeld = true;
+      if (params.has('kind')) { const kd = params.get('kind'); if (sword) L.swordSwing(kd, true); else (L.fists ?? L).swing(kd, params.get('side'), true); } // &kind=uppercut (a named move) / &key=Q (a special button)
+      else if (params.has('key')) L.special(params.get('key'));
+      else if (!params.has('noatk')) L.attack(heavy);
+      if (params.has('hold')) L.attackHeld = true;
       for (let s = 0; s < Math.round(+(params.get('skip') ?? 0) * 120); s++) knight.step(); // &skip=seconds: start the strip this long after the button press
       for (let i = 0; i < n; i++) {
         knight.readState(); frames.push({ label: `${params.get('mode') ?? 'attack'}${heavy ? ' heavy' : ''} ${(i * gap * dt).toFixed(2)}s`, P: knight.b.map((b) => b.p.clone()), Q: knight.b.map((b) => b.q.clone()), p: L.p });

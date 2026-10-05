@@ -15,7 +15,8 @@ const prof = (s) => JSON.parse(fs.readFileSync(new URL('../' + s.profile, import
 const K = await Knight.create(prof(KNIGHT), KNIGHT), S = await Knight.create(prof(SKELETON), SKELETON, K.world), R = await Knight.create(prof(ROBOT), ROBOT, K.world);
 K.reset(0, 0, 0); S.reset(-2.9, 1.5, Math.atan2(2.9, -1.5)); R.reset(2.8, 2.1, Math.atan2(-2.8, -2.1));
 const all = [K, S, R], by = { knight: K, skeleton: S, robot: R }, A = by[attacker], target = by[victim];
-const ais = new Map(all.map((c) => [c, new NpcAI(c, all)])), sim = new Sim(K.world, all), combat = new Combat(all);
+const ais = new Map(all.map((c) => [c, new NpcAI(c, all)])); if (process.env.PASSIVE) for (const a of ais.values()) a.enabled = false; // PASSIVE=1: nobody fights back (the attacker's own hit rate)
+const sim = new Sim(K.world, all), combat = new Combat(all);
 const tag = (c) => (c === K ? 'K' : c === S ? 'S' : 'R');
 const hits = { K: 0, S: 0, R: 0 }, downs = { K: 0, S: 0, R: 0 }, drew = { K: false };
 combat.onHit = (e) => { hits[tag(e.att)]++; if (e.heavy) downs[tag(e.tgt)]++; if (e.tgt !== A) { const ai = ais.get(e.tgt); ai.provoke(e.att, e.heavy); ai.hurt(e.heavy); } };
