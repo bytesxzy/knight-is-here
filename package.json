@@ -1,0 +1,11 @@
+﻿{
+  "name": "knight-active-ragdoll",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": { "start": "node server.js", "test": "node tools/sim-test.mjs" },
+  "imports": {
+    "#three": "./vendor/three/build/three.module.js",
+    "#rapier": "./vendor/rapier/rapier.mjs"
+  }
+}

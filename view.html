@@ -1,0 +1,37 @@
+<!doctype html>
+<html><head><meta charset="utf-8"><title>model viewer</title>
+<style>html,body{margin:0;height:100%;background:#16181d;overflow:hidden} canvas{display:block} #t{position:fixed;top:6px;left:8px;color:#ccc;font:12px system-ui}</style>
+<script type="importmap">{ "imports": { "three": "./vendor/three/build/three.module.js", "#three": "./vendor/three/build/three.module.js", "three/addons/": "./vendor/three/examples/jsm/" } }</script>
+</head><body><div id="t">loading…</div>
+<script type="module">
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+const q = new URLSearchParams(location.search), file = q.get('m') ?? 'skeleton.glb';
+const renderer = new THREE.WebGLRenderer({ antialias: true }); renderer.setSize(innerWidth, innerHeight); document.body.prepend(renderer.domElement);
+const scene = new THREE.Scene(); scene.background = new THREE.Color(0x16181d);
+scene.add(new THREE.HemisphereLight(0xffffff, 0x444455, 1.6)); const d = new THREE.DirectionalLight(0xffffff, 2); d.position.set(2, 4, 3); scene.add(d);
+scene.add(new THREE.GridHelper(4, 16, 0x555555, 0x333333));
+const cam = new THREE.PerspectiveCamera(35, innerWidth / innerHeight, 0.05, 50);
+const cp = (q.get('cam') ?? '0,1.0,4.2').split(',').map(Number), lk = (q.get('look') ?? '0,0.85,0').split(',').map(Number);
+cam.position.set(...cp);
+const controls = new OrbitControls(cam, renderer.domElement); controls.target.set(...lk); controls.update();
+const gltf = await new GLTFLoader().loadAsync(file);
+scene.add(gltf.scene);
+let mesh; gltf.scene.traverse((o) => { if (o.isSkinnedMesh) mesh = o; });
+if (q.has('bones')) { const h = new THREE.SkeletonHelper(gltf.scene); h.material.depthTest = false; h.renderOrder = 5; scene.add(h);
+  // joint spheres + names
+  const s = new THREE.SphereGeometry(0.012), m = new THREE.MeshBasicMaterial({ color: 0xffd24a, depthTest: false });
+  for (const b of mesh.skeleton.bones) { const sp = new THREE.Mesh(s, m); sp.renderOrder = 6; b.add(sp); } }
+if (q.has('fits')) { // collider fits (green) and self-collision proxies (cyan) in the rest pose
+  const { buildRig } = await import('./src/humanoid.js'), { RIGS } = await import('./src/rigs.js');
+  const spec = RIGS[q.get('rig') ?? 'skeleton'], profile = await (await fetch(spec.profile)).json(), rig = buildRig(profile, spec);
+  const mk = (f, color) => { const geo = f.shape === 'capsule' ? new THREE.CapsuleGeometry(f.r, 2 * f.hh, 4, 12) : f.shape === 'ball' ? new THREE.SphereGeometry(f.r, 14, 10) : new THREE.BoxGeometry(2 * f.h[0], 2 * f.h[1], 2 * f.h[2]);
+    const m = new THREE.Mesh(geo, new THREE.MeshBasicMaterial({ color, wireframe: true, transparent: true, opacity: 0.55, depthTest: false })); m.renderOrder = 8; return m; };
+  for (const b of rig.bodies) for (const [f, col, on] of [[b.fit, 0x66ff66, q.get('fits') !== 'prox'], [b.prox, 0x33ccff, q.get('fits') !== 'fit']]) { if (!on) continue; const m = mk(f, col); m.position.set(...f.c).add(b.anchor); if (f.shape === 'capsule') m.quaternion.set(...f.q); scene.add(m); }
+}
+if (q.has('flat')) mesh.material.wireframe = false;
+document.getElementById('t').textContent = file + (mesh ? ' · ' + mesh.skeleton.bones.length + ' bones' : '');
+window.__v = { THREE, scene, cam, controls, renderer, gltf, mesh };
+renderer.setAnimationLoop(() => { controls.update(); renderer.render(scene, cam); });
+</script></body></html>
